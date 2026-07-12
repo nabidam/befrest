@@ -133,7 +133,7 @@ There is no back button and no route history: S3/M1/M3 are dismissible layers; c
 - **Eye goes first to:** the QR code.
 - **Primary action:** none on-screen — the action happens on the *other* device (scanning). Close is secondary.
 - **Auto-behavior:** on the hub-launched page, S3 content is shown inline (S2 empty state) until a second device joins; the moment one joins, it collapses into the grid with a subtle "Pixel 8 joined" toast.
-- **Error state:** if hub reports the QR address may be unreachable (firewall heuristic), an amber hint appears under the QR: "If scanning doesn't work, check your firewall allows befrest on port 5311."
+- **Error state:** if hub reports the QR address may be unreachable (firewall heuristic), a warm-toned hint (DESIGN warn tokens) appears under the QR: "If scanning doesn't work, check your firewall allows befrest on port 5311."
 
 ### M1 — Incoming transfer prompt
 

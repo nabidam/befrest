@@ -8,7 +8,7 @@ Living document. Applies to all code in this repo. ARCHITECTURE.md owns *what* e
 - **TypeScript:** `camelCase` values, `PascalCase` types/components, `SCREAMING_SNAKE` never. Svelte components named after their UX id's element (`OfferModal` = M1, `ConnectionBanner` = B1); one component per file, filename = component name.
 - **Wire protocol:** message `type` strings are `kebab-case` (`offer-cancelled`), payload fields `camelCase` (`transferId`). `internal/proto` is the single source of truth; **any change to it and `web/src/lib/proto.ts` lands in the same commit** — a PR touching one without the other is rejected.
 - **Files/URLs:** HTTP paths `kebab-case` plural (`/api/transfers/{tid}/files/{idx}`). localStorage keys prefixed `befrest.` (`befrest.deviceId`).
-- **CSS:** custom properties only from `tokens.css`, named `--{category}-{name}` (`--color-accent`, `--space-4`). Component classes `kebab-case`, scoped by Svelte — no global class taxonomy, no BEM.
+- **CSS:** custom properties only from `tokens.css`/`fonts.css`, named `--{category}-{name}` (`--color-accent`, `--space-md`). Component classes `kebab-case`, scoped by Svelte — no global class taxonomy, no BEM.
 
 ## Error handling
 

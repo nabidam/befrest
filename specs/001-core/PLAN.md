@@ -207,7 +207,7 @@ Walk SPEC §2 kernel journey end-to-end on real hardware: laptop double-click �
 
 **Requirements:**
 - Ambiguity rule per ARCH §9: no single clear winner → `interface-choices{choices, preselected}` to the host page → M3 modal (host only); `pick-interface` → fresh `invite-info` to everyone, QR/URLs update immediately (FR-1.6); mDNS re-announce on change. S3 "Wrong network? Change network" link (host page only) reopens M3.
-- Reachability self-probe after bind: dial `advertisedIP:port`; failure → `invite-info.reachabilityHint`; S3 amber hint naming the port (FR-7.3, E-10).
+- Reachability self-probe after bind: dial `advertisedIP:port`; failure → `invite-info.reachabilityHint`; S3 warn hint naming the port (FR-7.3, E-10).
 - Flags: `--interface` (pins, skips M3), `--name` (host display name), completing ARCH §8's table; precedence flag > auto.
 
 **Acceptance:**
@@ -227,17 +227,17 @@ Walk AC-12 through AC-21 as a checklist on real devices (two phones + laptop, on
 
 ### Chunk 11 — Design system: tokens + S1/S2 surfaces
 
-**Files:** `web/src/styles/tokens.css`, `web/src/styles/base.css` (extend), `web/src/screens/NameScreen.svelte` (style), `web/src/screens/MainScreen.svelte` (style), `web/src/screens/Header.svelte` (style), `web/src/screens/DeviceGrid.svelte` (style), `web/src/screens/DeviceCard.svelte` (style), `web/src/screens/EmptyInvite.svelte` (style), `web/src/screens/Footer.svelte` (style)
+**Files:** `web/src/styles/tokens.css`, `web/src/styles/fonts.css`, `web/public/fonts/*.woff2` (Instrument Sans + JetBrains Mono, latin subsets), `web/src/styles/base.css` (extend), `web/src/screens/NameScreen.svelte` (style), `web/src/screens/MainScreen.svelte` (style), `web/src/screens/Header.svelte` (style), `web/src/screens/DeviceGrid.svelte` (style), `web/src/screens/DeviceCard.svelte` (style), `web/src/screens/EmptyInvite.svelte` (style), `web/src/screens/Footer.svelte` (style)
 
 **Requirements:**
-- `tokens.css` implements DESIGN.md's token table verbatim (light + dark via `prefers-color-scheme`); components consume tokens only — zero raw hex/px/font values in component styles (DESIGN hard rule).
+- `tokens.css` implements DESIGN.md's token table verbatim (dark-only per DESIGN_SYSTEM.md — no `prefers-color-scheme` branching); `fonts.css` declares self-hosted `@font-face` for Instrument Sans + JetBrains Mono with `font-display: swap` and system fallbacks; components consume tokens only — zero raw hex/px/font values in component styles (DESIGN hard rule).
 - S1, S2, header, grid, cards, empty-invite, footer styled to DESIGN component-state specs: hover/focus-visible/active/disabled on every interactive element; skeleton loading; join pulse signature on card entry.
 - Touch targets ≥ `--size-touch`; card min-height `--size-card-min`; layout per DESIGN (single column, `--size-content-max`).
 
 **Acceptance:**
 - `grep -rE '#[0-9a-fA-F]{3,8}|[0-9]+px' web/src/screens/` returns no matches (values live only in tokens.css).
 - Keyboard-only pass: every interactive element on S1/S2 reachable with a visible focus ring.
-- OS dark mode toggles the palette with no unreadable pairings (spot-check text/bg with a contrast checker ≥ 4.5:1).
+- No unreadable pairings in the dark palette (spot-check text/bg with a contrast checker ≥ 4.5:1); fonts load from the hub itself — DevTools network tab shows zero external requests.
 - A joining device's card animates the pulse once; with `prefers-reduced-motion`, it doesn't.
 
 **NOT:** no CSS framework, no in-app theme toggle (C-5), no layout restructuring of UX.md's regions, no styling of layers (next chunk).
@@ -250,7 +250,7 @@ Walk AC-12 through AC-21 as a checklist on real devices (two phones + laptop, on
 
 **Requirements:**
 - S3 sheet (QR ≥ ~50 % of sheet per UX §5), M1 modal (Accept filled primary, Decline same-size secondary — UX M1), M3, B1 banner, receive banner, toasts — all to DESIGN component-state specs.
-- A11y audit vs NFR-8: M1/M3 focus-trapped `role=dialog` with Escape≡Decline/close; toasts + banners `aria-live=polite`; all state changes textual, never color-only; contrast AA on every pairing incl. amber hint and dark mode.
+- A11y audit vs NFR-8: M1/M3 focus-trapped `role=dialog` with Escape≡Decline/close; toasts + banners `aria-live=polite`; all state changes textual, never color-only; contrast AA on every pairing incl. the warn hint block; QR renders on its light tile and scans reliably against the dark theme.
 
 **Acceptance:**
 - axe-core scan on S1, S2 (populated + empty), S3, M1 open, B1 shown: zero critical violations.

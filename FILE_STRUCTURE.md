@@ -58,12 +58,15 @@ befrest/
 │   ├── svelte.config.js
 │   ├── tsconfig.json
 │   ├── index.html
+│   ├── public/
+│   │   └── fonts/                       Instrument Sans + JetBrains Mono woff2 (latin subsets), self-hosted
 │   ├── dist/                            generated — embedded into the binary, git-ignored
 │   └── src/
 │       ├── main.ts                      mounts App
 │       ├── App.svelte                   S1 ↔ S2 switch; hosts layers
 │       ├── styles/
 │       │   ├── tokens.css               DESIGN.md §2 verbatim — the only file with raw values
+│       │   ├── fonts.css                @font-face for the two self-hosted families
 │       │   └── base.css                 reset + element defaults, tokens only
 │       ├── lib/
 │       │   ├── proto.ts                 wire types — mirror of internal/proto
