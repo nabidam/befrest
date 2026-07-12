@@ -12,7 +12,7 @@ Design stance: **one screen**. Everything else is a modal, sheet, or transient b
 |----|------|------|---------|--------------|
 | S1 | Name confirmation | Full-screen (first visit only) | Confirm/edit auto-suggested device name before joining | First load of the page on a device with no stored name |
 | S2 | Device list (main) | Full-screen | See connected devices, pick a target, watch transfers | After S1; every subsequent page load (name remembered); after any modal closes |
-| S3 | Invite panel | Sheet/modal over S2 | Show QR code + `http://befrest.local` + raw `IP:port` so new devices can join | Auto-open on the hub-launched browser page when device list is empty; "Add device" button on S2 (all devices) |
+| S3 | Invite panel | Sheet/modal over S2 | Show QR code + `http://befrest.local:port` + raw `IP:port` so new devices can join | Shown inline as S2's empty state whenever no other devices are connected (expected first view on the hub-launched page); "Add device" button on S2 (all devices) |
 | M1 | Incoming transfer prompt | Modal over S2 | Receiver accepts or declines an offered transfer | Pushed by hub when another device targets this one |
 | M2 | Transfer progress | Inline on S2 device card (sender) + banner (receiver) | Show live progress, allow cancel | Automatically when a transfer starts |
 | M3 | Network interface picker | Modal over S2, hub page only | Resolve multi-NIC ambiguity: choose which interface's address goes in the QR | Pushed by hub when it cannot pick the LAN interface confidently; "change network" link inside S3 |
@@ -100,7 +100,7 @@ There is no back button and no route history: S3/M1/M3 are dismissible layers; c
 
 - **Eye goes first to:** the device grid (biggest, most colorful region).
 - **Primary action:** tap a device card → native file picker opens (multi-select). On desktop, dragging files onto a card is equivalent; card shows a drop highlight ("Drop to send to Laptop") on dragover.
-- **Empty state (no other devices):** grid replaced by centered invite content — "No other devices yet" + inline QR + `http://befrest.local` + `IP:port`, i.e. S3's content promoted into the page body. On the hub-launched page this is the expected first view.
+- **Empty state (no other devices):** grid replaced by centered invite content — "No other devices yet" + inline QR + `http://befrest.local:port` + `IP:port`, i.e. S3's content promoted into the page body. On the hub-launched page this is the expected first view.
 - **Loading state:** between page load and first WebSocket device-list message: skeleton cards (2 gray placeholders), max ~2s before B1 logic kicks in.
 - **Error state:** covered by B1 (connection lost) and B2 (transfer failures) — the grid itself never shows an error; unreachable devices simply disappear.
 - **Receiving state:** while receiving, a slim progress banner pins under the header: "Receiving video.mp4 from Pixel 8 — ▓▓░░ 41% [cancel]". Grid stays usable (can still send while receiving).
@@ -120,8 +120,10 @@ There is no back button and no route history: S3/M1/M3 are dismissible layers; c
 │   Scan with a phone camera,      │  region 3: instructions +
 │   or type either of these:       │  human-typeable fallbacks
 │                                  │
-│   http://befrest.local     [⧉]  │  tap to copy
+│   http://befrest.local:5311 [⧉] │  tap to copy
 │   http://192.168.1.7:5311  [⧉]  │  tap to copy
+│   (mDNS resolves the name only;  │
+│    the port is always shown)     │
 │                                  │
 │   (hub page only:)               │
 │   Wrong network? Change network  │  region 4: link → M3

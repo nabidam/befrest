@@ -1,5 +1,5 @@
 ---
-status: draft
+status: gate-passed
 ---
 
 # Befrest — SPEC
@@ -10,7 +10,7 @@ Send a file from any device to any other device on your local network in seconds
 
 ## 2. Kernel
 
-1. **Hub binary** — single downloadable executable. Double-click → tray icon appears, browser opens showing join page (QR code + `http://befrest.local` + raw IP:port fallback). QR encodes the IP URL (most reliable); mDNS name is the human-typeable alternative.
+1. **Hub binary** — single downloadable executable. Double-click → tray icon appears, browser opens showing join page (QR code + `http://befrest.local:port` + raw IP:port fallback). QR encodes the IP URL (most reliable); mDNS name is the human-typeable alternative (port always explicit — mDNS resolves only the address).
 2. **Join** — phone scans QR → page opens → device gets a name (auto-suggested from user-agent, editable) → appears in everyone's device list. No account, no pairing.
 3. **Live device list** — every open page shows currently connected devices (WebSocket presence). Page closed = device disappears.
 4. **Send with accept** — pick file(s), tap target device → receiver sees prompt (sender name, filename, size) → Accept starts transfer, Decline cancels. Progress bar on both sides. GB-scale files must work: streamed end-to-end, never fully buffered in memory.
@@ -56,7 +56,7 @@ Send a file from any device to any other device on your local network in seconds
 ## 6. Suggested tech stack
 
 - **Hub:** Go — `net/http`, WebSocket (presence + signaling), `embed.FS` frontend, systray lib, mDNS announce, single static cross-compiled binary.
-- **Frontend:** Svelte (or vanilla TS) SPA, no heavy framework; touch-first.
+- **Frontend:** Svelte SPA, no heavy framework; touch-first. (Committed in ARCHITECTURE.md: Svelte 5 + TypeScript + Vite.)
 
 ## 7. Design direction
 

@@ -1,5 +1,5 @@
 ---
-status: draft
+status: gate-passed
 ---
 
 # Befrest — PRD
@@ -20,7 +20,7 @@ Product requirements for Befrest v1: LAN file transfer via a single hub binary a
 - FR-1.7 Quitting the hub terminates all connections; open client pages show the connection-lost state (B1).
 
 ### FR-2 Join & identity
-- FR-2.1 Any device on the same network joins by opening the hub URL in a browser — via QR scan, `http://befrest.local`, or raw `IP:port`. No account, install, or pairing step exists.
+- FR-2.1 Any device on the same network joins by opening the hub URL in a browser — via QR scan, `http://befrest.local:port`, or raw `IP:port`. No account, install, or pairing step exists.
 - FR-2.2 The QR code encodes the raw `http://IP:port` URL.
 - FR-2.3 On first visit, the client shows a name confirmation screen (S1) pre-filled with a name derived from the device's user-agent; the user may edit it before joining.
 - FR-2.4 The device name persists on the device across visits; returning devices skip S1.
@@ -110,14 +110,14 @@ All criteria are observable in the running app. Kernel criteria gate the kernel;
 - AC-11 Send a file from the laptop to the phone: the phone shows the accept prompt, and after accepting, the file lands in the phone browser's downloads. *(kernel journey step 4)*
 - AC-12 Join a second phone with the same model (same suggested name): the device list shows it with a distinct suffixed name. *(FR-2.6)*
 - AC-13 Start the hub twice / with the preferred port occupied: the second context binds a different port and the displayed QR decodes to the actually reachable URL. *(FR-1.4)*
-- AC-14 Type `http://befrest.local` (with actual bound port if non-default) into a browser on the LAN: the app page loads. *(FR-1.5)*
+- AC-14 Type `http://befrest.local:<bound port>` into a browser on the LAN: the app page loads. (mDNS resolves only the address; displayed URLs always include the explicit port.) *(FR-1.5)*
 - AC-15 On a host with an active VPN interface, launch the hub: either the QR encodes the real LAN address, or an interface-picker prompt appears; after choosing, the QR encodes the chosen interface's address. *(FR-1.6)*
 
 ### v1
 
 - AC-16 Tap a device card and select 5 files: the receiver's prompt lists them (or shows a "+N more" summary with total size); after accept, all 5 land in downloads and progress showed "file N of 5". *(FR-4.1, FR-5.1, FR-6.2)*
 - AC-17 On a desktop browser, drag files from the file manager over a device card: the card highlights; dropping starts the same offer flow as the picker. *(FR-4.2)*
-- AC-18 Start an upload from a phone: a visible hint says to keep the screen on. Lock the phone screen mid-upload: the laptop shows a failure notice within a few seconds. *(FR-6.6, FR-6.5)*
+- AC-18 Start an upload from a phone: a visible hint says to keep the screen on. Lock the phone screen mid-upload: the laptop shows a failure notice within the 30-second stall-detection deadline (sooner when the OS closes the connection outright). *(FR-6.6, FR-6.5)*
 - AC-19 Stop the hub process while a client page is open: the page shows a reconnecting banner and device cards are not tappable. Restart the hub: the banner clears without a manual page reload and the device list repopulates. *(FR-7.1, 7.2)*
 - AC-20 Rename your device from the header: the new name appears on other devices' lists within 2 seconds. *(FR-2.5)*
 - AC-21 While receiving a file, tap another device card and send it a file: both transfers proceed and show independent progress. *(FR-4.6)*

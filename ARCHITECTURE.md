@@ -143,7 +143,7 @@ Auth model: **none** (PRD C-3, trusted LAN). Capability discipline: transfer upl
 | Method & path | Purpose | Request | Success | Errors |
 |---|---|---|---|---|
 | `GET /` and static assets | Serve embedded SPA | — | `200` HTML/JS/CSS | — |
-| `GET /ws` | Upgrade to control WebSocket | `?deviceId=` (optional, rejoin) `&hostToken=` (host page only) | `101` | `400` bad upgrade |
+| `GET /ws` | Upgrade to control WebSocket | plain upgrade — identity travels in the `hello` frame, not query params | `101` | `400` bad upgrade |
 | `POST /api/transfers/{tid}/files/{idx}` | Sender streams one file's bytes | raw body, `Content-Length` required = `FileMeta.Size` | `200 {"ok":true}` after fully relayed | `404` unknown tid/idx · `409` transfer not in `Accepted/Streaming` or file already sent · `411` missing length · `400` length ≠ declared size · `499`* receiver gone mid-stream |
 | `GET /api/transfers/{tid}/files/{idx}` | Receiver downloads one file's bytes | — | `200`, `Content-Type: application/octet-stream`, `Content-Length: size`, `Content-Disposition: attachment; filename="…"` | `404` unknown · `409` wrong state / already downloaded · stream abort on sender failure |
 
@@ -159,7 +159,7 @@ JSON text frames, `{"type": "...", ...}`. Defined in `internal/proto` / `web/src
 
 | type | payload | notes |
 |---|---|---|
-| `hello` | `{deviceId?, name?, kind, hostToken?}` | first frame after connect. No stored name + no `name` ⇒ hub replies `need-name` (client shows S1). Host token ⇒ `IsHost`, name from hub hostname (FR-2.7) |
+| `hello` | `{deviceId?, name?, hostToken?}` | first frame after connect. `Kind` and the name suggestion are derived hub-side from the upgrade request's User-Agent (§9). No stored name + no `name` ⇒ hub replies `need-name` (client shows S1). Host token ⇒ `IsHost`, name from hub hostname (FR-2.7) |
 | `set-name` | `{name}` | S1 Join and header rename (FR-2.5); hub dedups (FR-2.6) |
 | `offer` | `{to: deviceId, files: [{name, size}]}` | validated per V-3/V-5/V-6; hub replies `offer-created` or `error` |
 | `offer-cancel` | `{transferId}` | sender withdraws pending offer (FR-4.4) |
@@ -175,7 +175,7 @@ JSON text frames, `{"type": "...", ...}`. Defined in `internal/proto` / `web/src
 | `welcome` | `{deviceId, self: Device, isHost}` | join handshake; client persists `deviceId` |
 | `need-name` | `{suggested}` | S1 with pre-fill (FR-2.3; suggestion derived hub-side from User-Agent) |
 | `devices` | `{devices: Device[]}` | full snapshot on join and after every change — S2 grid (FR-3.1–3.3). Client filters out self (V-5) |
-| `invite-info` | `{urls: {mdns, ip}, port, reachabilityHint?}` | S3 / S2 empty state content; re-sent when interface changes; `reachabilityHint` set when self-probe fails (FR-7.3) |
+| `invite-info` | `{urls: {mdns, ip}, port, reachabilityHint?}` | S3 / S2 empty state content; **both URLs include the bound port** (browsers don't read mDNS SRV records); re-sent when interface changes; `reachabilityHint` set when self-probe fails (FR-7.3) |
 | `interface-choices` | `{choices: [{id, kind, address}], preselected}` | M3 (FR-1.6) |
 | `offer-created` | `{transfer: Transfer}` | sender's "waiting for accept" card state (FR-4.3) |
 | `offer` | `{transfer: Transfer, from: Device}` | receiver's M1 (FR-5.1) |
@@ -241,7 +241,7 @@ App.svelte                     state switch: need-name? → S1 : S2; hosts layer
 └── ToastHost.svelte           B2 — success/failure/join toasts, aria-live
 ```
 
-Stores (`lib/stores.ts`): `connection` (B1), `self` (S1/S2 header), `devices` (grid), `offers` (M1 queue), `transfers` (M2 states per transfer), `invite` (S3/EmptyInvite/M3). Components subscribe to stores; only `ws.ts` mutates them.
+Stores (`lib/stores.ts`): `connection` (B1), `self` (S1/S2 header), `devices` (grid), `offers` (M1 queue), `transfers` (M2 states per transfer), `invite` (S3/EmptyInvite/M3), `toasts` (B2). Components subscribe to stores; only `ws.ts` mutates them.
 
 ---
 
@@ -294,6 +294,6 @@ Precedence: flag > auto-detection. `BEFREST_PORT` env var is honored as equivale
 
 - **Interface ranking heuristic** (`netinfo`): candidate = up, non-loopback, has private IPv4. Score: physical NIC name patterns (`en*`, `eth*`, `wl*`) > virtual (`tun*`, `tap*`, `docker*`, `br-*`, `utun*`); default-route interface gets priority. One clear winner ⇒ use it; else ⇒ `interface-choices` to host page (M3, AC-15).
 - **Reachability self-probe** (FR-7.3): after bind, hub dials `advertisedIP:port` from another local socket; failure ⇒ `invite-info.reachabilityHint` with the port number.
-- **Name suggestion**: hub-side User-Agent parsing table (model names for Android, "iPhone"/"iPad", OS names for desktop) — keeps the logic in one place and out of the bundle.
+- **Name suggestion & device kind**: hub-side User-Agent parsing table (model names for Android, "iPhone"/"iPad", OS names for desktop) yields both the `need-name` suggestion and `Device.Kind` — keeps the logic in one place and out of the bundle.
 - **Binary size** (NFR-4): Svelte output is the only embedded asset; build with `-ldflags "-s -w"`; expected well under 30 MB.
 - **A11y** (NFR-8): toasts and banners are `aria-live=polite`; M1 is a focus-trapped `role=dialog`; all interactive targets ≥ 56 px; state changes always textual (PRD NFR-8).
