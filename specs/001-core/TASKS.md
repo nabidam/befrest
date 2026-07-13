@@ -299,6 +299,8 @@ Task order is execution order. Walking-skeleton tasks (T0–T14) may not be reor
   - S2 shows 2 skeleton cards between page load and first `devices`, max ~2 s before B1 logic (UX S2 loading state).
 - **Difficulty:** medium.
 - **NOT:** no transfer-failure handling on disconnect (T12), no offline queueing, no styling.
+- **Status:** Done — `67be3ac`
+- **Verification evidence:** `npm --prefix web test && npm --prefix web run build && go test ./... && make test && go test -race ./internal/server -count=1` passed; `TestWebSocketRenameDeduplicatesAndFansOut` drove two real WebSockets through a live rename and observed the suffixed snapshot on both clients; the built binary served the embedded SPA at `http://127.0.0.1:54321/` under `--no-open --no-mdns`.
 
 **Interfaces**
 - CONSUMES: T2 WS loop; T3 `connection` store + `set-name` frame; T10 Header.
