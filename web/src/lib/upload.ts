@@ -15,10 +15,17 @@ export function chooseFiles(recipientID: string): void {
   picker.addEventListener('change', () => {
     const files = Array.from(picker.files ?? []);
     if (files.length === 0) return;
-    filesByRecipient.set(recipientID, files);
-    if (!offerFiles(recipientID, files)) filesByRecipient.delete(recipientID);
+    offerSelectedFiles(recipientID, files);
   });
   picker.click();
+}
+
+export function offerSelectedFiles(recipientID: string, files: File[]): boolean {
+  if (files.length === 0) return false;
+  filesByRecipient.set(recipientID, files);
+  if (offerFiles(recipientID, files)) return true;
+  filesByRecipient.delete(recipientID);
+  return false;
 }
 
 export function registerOfferFiles(transfer: Transfer): void {

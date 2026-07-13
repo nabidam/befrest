@@ -1,12 +1,14 @@
 <script lang="ts">
   import type { Device } from '../lib/proto';
-  import { chooseFiles } from '../lib/upload';
-  import { transfers } from '../lib/stores';
+  import { chooseFiles, offerSelectedFiles } from '../lib/upload';
+  import { self, transfers } from '../lib/stores';
   import { formatBytes, formatFilePosition } from '../lib/format';
 
   export let device: Device;
   export let disabled = false;
   export let onCancel: (transferID: string, pending: boolean) => void;
+
+  let dropping = false;
 
   $: transfer = Object.values($transfers).find(
     (item) => item.direction === 'sending' && item.transfer.receiverId === device.id,
@@ -27,6 +29,24 @@
     if (!transfer) return;
     onCancel(transfer.transfer.id, transfer.transfer.state === 'offered');
   }
+
+  function onDragover(event: DragEvent): void {
+    if (disabled || transfer || !event.dataTransfer?.types.includes('Files')) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'copy';
+    dropping = true;
+  }
+
+  function onDragleave(event: DragEvent): void {
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) dropping = false;
+  }
+
+  function onDrop(event: DragEvent): void {
+    event.preventDefault();
+    dropping = false;
+    if (disabled || transfer) return;
+    offerSelectedFiles(device.id, Array.from(event.dataTransfer?.files ?? []));
+  }
 </script>
 
 <div
@@ -34,8 +54,12 @@
   tabindex={disabled || Boolean(transfer) ? undefined : 0}
   aria-label={`Send files to ${device.name}`}
   aria-disabled={disabled || Boolean(transfer)}
+  data-drop-active={dropping}
   on:click={pickFiles}
   on:keydown={onKeydown}
+  on:dragover={onDragover}
+  on:dragleave={onDragleave}
+  on:drop={onDrop}
 >
   {#if transfer}
     <h3>{device.name}</h3>
@@ -44,7 +68,12 @@
     <progress value={transfer.totalSent} max={transfer.totalSize}></progress>
     <p>{formatBytes(transfer.totalSent)} / {formatBytes(transfer.totalSize)}</p>
     <p>{transfer.totalSize === 0 ? 100 : Math.round((transfer.totalSent / transfer.totalSize) * 100)}%</p>
+    {#if $self?.kind === 'mobile'}
+      <p>Keep this screen on until sending finishes.</p>
+    {/if}
     <button type="button" on:click|stopPropagation={cancel}>Cancel</button>
+  {:else if dropping}
+    <p>Drop to send to {device.name}</p>
   {:else}
     <p aria-hidden="true">{device.kind === 'mobile' ? '📱' : '💻'}</p>
     <h3>{device.name}</h3>
