@@ -82,6 +82,8 @@ Task order is execution order. Walking-skeleton tasks (T0–T14) may not be reor
   - Closing a socket → `devices` fanout without that device to survivors (FR-3.3).
 - **Difficulty:** medium.
 - **NOT:** no ping/pong sweep (T11), no reconnect logic (client-side, T11), no hostToken (T9), no transfer messages (T6).
+- **Status:** Done — `ab20ac3`
+- **Verification evidence:** `go test ./internal/server -count=1` exercised real `httptest` WebSocket hello/set-name and returning-client handshakes, all-socket deduplicated snapshots, and leave fanout; `go test ./... && make test` passed.
 
 **Interfaces**
 - CONSUMES (from T1, per ARCH §3/§4.2): `Device` struct; registry join/rename/leave/snapshot + Notifier; proto frames `hello`/`set-name`/`welcome`/`need-name`/`devices`/`error` with payloads as quoted in T1.
