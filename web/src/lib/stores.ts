@@ -1,5 +1,5 @@
 import { writable } from 'svelte/store';
-import type { Device, InviteInfoMessage, Transfer } from './proto';
+import type { Device, InterfaceChoicesMessage, InviteInfoMessage, Transfer } from './proto';
 
 export type ConnectionState = 'connecting' | 'ready' | 'joining' | 'connected' | 'error';
 
@@ -10,6 +10,7 @@ export const needsName = writable(true);
 export const suggestedName = writable('');
 export const connectionError = writable<string | null>(null);
 export const invite = writable<InviteInfoMessage | null>(null);
+export const interfaceChoices = writable<InterfaceChoicesMessage | null>(null);
 export const devicesLoaded = writable(false);
 
 export interface IncomingOffer {

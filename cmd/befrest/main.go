@@ -13,6 +13,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"syscall"
 
 	"github.com/grandcat/zeroconf"
@@ -30,6 +31,8 @@ func main() {
 	defer closeLog()
 	noOpen := flag.Bool("no-open", false, "do not open Befrest in a browser")
 	noMDNS := flag.Bool("no-mdns", false, "do not announce Befrest on the local network")
+	interfaceID := flag.String("interface", "", "network interface to advertise")
+	hostNameFlag := flag.String("name", "", "host device display name")
 	port, err := configuredPort()
 	if err != nil {
 		slog.Error("invalid port configuration", "err", err)
@@ -48,14 +51,62 @@ func main() {
 		slog.Error("read hostname", "err", err)
 		os.Exit(1)
 	}
+	if *hostNameFlag != "" {
+		hostName = *hostNameFlag
+	}
 	hostToken, err := mintHostToken()
 	if err != nil {
 		slog.Error("mint host token", "err", err)
 		os.Exit(1)
 	}
-	address := advertisedAddress()
+	discovery, address, err := advertisedNetwork(*interfaceID)
+	if err != nil {
+		slog.Error("select LAN address", "err", err)
+		os.Exit(2)
+	}
+	reachabilityHint := ""
+	if err := netinfo.Probe(address, boundPort); err != nil {
+		reachabilityHint = fmt.Sprintf("If scanning doesn't work, check your firewall allows befrest on port %d.", boundPort)
+		slog.Warn("advertised address may be unreachable", "address", address, "port", boundPort, "err", err)
+	}
 	invite := serverInvite(address, boundPort)
-	handler, err := server.New(web.Files, server.Config{HostToken: hostToken, HostName: hostName, Invite: invite})
+	invite.ReachabilityHint = reachabilityHint
+
+	var mdnsMu sync.Mutex
+	var mdns *zeroconf.Server
+	announce := func(nextAddress string) error {
+		if *noMDNS {
+			return nil
+		}
+		mdnsMu.Lock()
+		defer mdnsMu.Unlock()
+		if mdns != nil {
+			mdns.Shutdown()
+			mdns = nil
+		}
+		registered, err := zeroconf.RegisterProxy("befrest", "_http._tcp", "local.", boundPort, "befrest.local.", []string{nextAddress}, nil, nil)
+		if err != nil {
+			return err
+		}
+		mdns = registered
+		return nil
+	}
+	choices := wireChoices(discovery, *interfaceID == "")
+	handler, err := server.New(web.Files, server.Config{
+		HostToken: hostToken, HostName: hostName, Invite: invite, InterfaceChoices: choices,
+		PickInterface: func(id string) (proto.InviteInfo, error) {
+			candidate, ok := netinfo.CandidateByID(discovery.Candidates, id)
+			if !ok {
+				return proto.InviteInfo{}, fmt.Errorf("unknown interface %q", id)
+			}
+			if err := announce(candidate.Address); err != nil {
+				slog.Error("re-announce mDNS", "err", err)
+			}
+			next := serverInvite(candidate.Address, boundPort)
+			next.ReachabilityHint = reachabilityHint
+			return next, nil
+		},
+	})
 	if err != nil {
 		slog.Error("create server", "err", err)
 		os.Exit(1)
@@ -71,14 +122,15 @@ func main() {
 		}
 	}()
 
-	var mdns *zeroconf.Server
 	if !*noMDNS {
-		mdns, err = zeroconf.RegisterProxy("befrest", "_http._tcp", "local.", boundPort, "befrest.local.", []string{address}, nil, nil)
-		if err != nil {
+		if err := announce(address); err != nil {
 			slog.Error("start mDNS", "err", err)
-		} else {
-			defer mdns.Shutdown()
 		}
+		defer func() {
+			if mdns != nil {
+				mdns.Shutdown()
+			}
+		}()
 	}
 
 	quit := make(chan struct{})
@@ -127,17 +179,34 @@ func mintHostToken() (string, error) {
 	return base64.RawURLEncoding.EncodeToString(bytes), nil
 }
 
-func advertisedAddress() string {
+func advertisedNetwork(interfaceID string) (netinfo.Result, string, error) {
 	result, err := netinfo.Discover()
 	if err != nil {
-		slog.Error("discover LAN address", "err", err)
-		return "127.0.0.1"
+		return netinfo.Result{}, "", err
+	}
+	if interfaceID != "" {
+		candidate, ok := netinfo.CandidateByID(result.Candidates, interfaceID)
+		if !ok {
+			return result, "", fmt.Errorf("interface %q has no private IPv4 address", interfaceID)
+		}
+		return result, candidate.Address, nil
 	}
 	if len(result.Candidates) > 0 {
-		return result.Candidates[0].Address
+		return result, result.Candidates[0].Address, nil
 	}
 	slog.Warn("no private LAN address found; invites are local-only")
-	return "127.0.0.1"
+	return result, "127.0.0.1", nil
+}
+
+func wireChoices(result netinfo.Result, ambiguous bool) []proto.InterfaceChoice {
+	if !ambiguous || !result.Ambiguous {
+		return nil
+	}
+	choices := make([]proto.InterfaceChoice, len(result.Candidates))
+	for i, candidate := range result.Candidates {
+		choices[i] = proto.InterfaceChoice{ID: candidate.ID, Kind: candidate.Kind, Address: candidate.Address}
+	}
+	return choices
 }
 
 func serverInvite(address string, port int) proto.InviteInfo {

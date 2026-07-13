@@ -180,3 +180,13 @@ func isVirtual(id string) bool {
 		strings.HasPrefix(id, "docker") || strings.HasPrefix(id, "br-") ||
 		strings.HasPrefix(id, "utun")
 }
+
+// CandidateByID resolves an M3 selection without re-reading OS interfaces.
+func CandidateByID(candidates []Candidate, id string) (Candidate, bool) {
+	for _, candidate := range candidates {
+		if candidate.ID == id {
+			return candidate, true
+		}
+	}
+	return Candidate{}, false
+}

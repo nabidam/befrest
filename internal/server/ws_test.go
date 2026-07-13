@@ -133,6 +133,57 @@ func TestWebSocketHostTokenJoinsHostAndSendsInviteInfo(t *testing.T) {
 	}
 }
 
+func TestWebSocketHostPicksInterfaceAndRefreshesInvites(t *testing.T) {
+	handler, err := New(fstest.MapFS{"dist/index.html": &fstest.MapFile{Data: []byte("Befrest")}}, Config{
+		HostToken: "host-token",
+		HostName:  "Befrest Host",
+		Invite:    proto.InviteInfo{Type: proto.MsgInviteInfo, URLs: proto.InviteURLs{MDNS: "http://befrest.local:5311", IP: "http://192.168.1.10:5311"}, Port: 5311},
+		InterfaceChoices: []proto.InterfaceChoice{
+			{ID: "wlan0", Kind: "physical", Address: "192.168.1.10"},
+			{ID: "tun0", Kind: "virtual", Address: "10.8.0.2"},
+		},
+		PickInterface: func(id string) (proto.InviteInfo, error) {
+			if id != "tun0" {
+				t.Fatalf("picked interface = %q, want tun0", id)
+			}
+			return proto.InviteInfo{Type: proto.MsgInviteInfo, URLs: proto.InviteURLs{MDNS: "http://befrest.local:5311", IP: "http://10.8.0.2:5311"}, Port: 5311}, nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	server := httptest.NewServer(handler)
+	defer server.Close()
+
+	host := dialWS(t, server.URL, "Mozilla/5.0")
+	defer host.CloseNow()
+	writeFrame(t, host, proto.Hello{Type: proto.MsgHello, HostToken: "host-token"})
+	_ = readFrame(t, host) // welcome
+	_ = readFrame(t, host) // initial invite
+	choices := readFrame(t, host)
+	if choices.Type != proto.MsgInterfaceChoices || choices.Preselected != "wlan0" || len(choices.Choices) != 2 {
+		t.Fatalf("interface choices = %#v", choices)
+	}
+	assertDevices(t, readFrame(t, host), "Befrest Host")
+	guest := dialWS(t, server.URL, "Mozilla/5.0")
+	defer guest.CloseNow()
+	writeFrame(t, guest, proto.Hello{Type: proto.MsgHello, Name: "Guest"})
+	_ = readFrame(t, guest) // welcome
+	_ = readFrame(t, guest) // initial invite
+	assertDevices(t, readFrame(t, guest), "Befrest Host", "Guest")
+	assertDevices(t, readFrame(t, host), "Befrest Host", "Guest")
+
+	writeFrame(t, host, proto.PickInterface{Type: proto.MsgPickInterface, InterfaceID: "tun0"})
+	updated := readFrame(t, host)
+	if updated.Type != proto.MsgInviteInfo || updated.URLs.IP != "http://10.8.0.2:5311" {
+		t.Fatalf("updated invite = %#v", updated)
+	}
+	updatedGuest := readFrame(t, guest)
+	if updatedGuest.Type != proto.MsgInviteInfo || updatedGuest.URLs.IP != "http://10.8.0.2:5311" {
+		t.Fatalf("guest updated invite = %#v", updatedGuest)
+	}
+}
+
 func TestDeviceSuggestionClassifiesSupportedUserAgents(t *testing.T) {
 	tests := []struct {
 		name, userAgent, suggestion, kind string
@@ -176,12 +227,14 @@ func writeFrame(t *testing.T, conn *websocket.Conn, frame any) {
 }
 
 type receivedFrame struct {
-	Type      string           `json:"type"`
-	Suggested string           `json:"suggested"`
-	Self      proto.Device     `json:"self"`
-	Devices   []proto.Device   `json:"devices"`
-	URLs      proto.InviteURLs `json:"urls"`
-	Port      int              `json:"port"`
+	Type        string                  `json:"type"`
+	Suggested   string                  `json:"suggested"`
+	Self        proto.Device            `json:"self"`
+	Devices     []proto.Device          `json:"devices"`
+	URLs        proto.InviteURLs        `json:"urls"`
+	Port        int                     `json:"port"`
+	Choices     []proto.InterfaceChoice `json:"choices"`
+	Preselected string                  `json:"preselected"`
 }
 
 func readFrame(t *testing.T, conn *websocket.Conn) receivedFrame {

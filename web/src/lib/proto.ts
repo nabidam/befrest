@@ -18,6 +18,8 @@ export const MSG_TRANSFER_CANCEL = 'transfer-cancel';
 export const MSG_OFFER_CANCELLED = 'offer-cancelled';
 export const MSG_TRANSFER_FAILED = 'transfer-failed';
 export const MSG_INVITE_INFO = 'invite-info';
+export const MSG_INTERFACE_CHOICES = 'interface-choices';
+export const MSG_PICK_INTERFACE = 'pick-interface';
 
 export type DeviceKind = 'mobile' | 'desktop';
 
@@ -42,6 +44,23 @@ export interface InviteInfoMessage {
   urls: { mdns: string; ip: string };
   port: number;
   reachabilityHint?: string;
+}
+
+export interface InterfaceChoice {
+  id: string;
+  kind: string;
+  address: string;
+}
+
+export interface InterfaceChoicesMessage {
+  type: typeof MSG_INTERFACE_CHOICES;
+  choices: InterfaceChoice[];
+  preselected: string;
+}
+
+export interface PickInterfaceMessage {
+  type: typeof MSG_PICK_INTERFACE;
+  interfaceId: string;
 }
 
 export interface SetNameMessage {
@@ -165,4 +184,5 @@ export type ServerMessage =
   | ProgressMessage
   | OfferCancelledMessage
   | TransferFailedMessage
-  | InviteInfoMessage;
+  | InviteInfoMessage
+  | InterfaceChoicesMessage;

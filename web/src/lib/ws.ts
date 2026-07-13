@@ -5,6 +5,7 @@ import {
   MSG_ERROR,
   MSG_FILE_READY,
   MSG_INVITE_INFO,
+  MSG_INTERFACE_CHOICES,
   MSG_HELLO,
   MSG_NEED_NAME,
   MSG_OFFER,
@@ -12,6 +13,7 @@ import {
   MSG_OFFER_CANCELLED,
   MSG_OFFER_CREATED,
   MSG_PROGRESS,
+  MSG_PICK_INTERFACE,
   MSG_SET_NAME,
   MSG_TRANSFER_ACCEPTED,
   MSG_TRANSFER_DECLINED,
@@ -27,7 +29,7 @@ import {
 import { beginUpload, registerOfferFiles } from './upload';
 import { downloadFile } from './download';
 import { formatOfferCancellation, formatTransferFailure } from './format';
-import { connection, connectionError, devices, devicesLoaded, invite, needsName, offers, self, suggestedName, toasts, transfers, type Toast, type TransferStatus } from './stores';
+import { connection, connectionError, devices, devicesLoaded, interfaceChoices, invite, needsName, offers, self, suggestedName, toasts, transfers, type Toast, type TransferStatus } from './stores';
 
 const DEVICE_ID_KEY = 'befrest.deviceId';
 const NAME_KEY = 'befrest.name';
@@ -119,6 +121,9 @@ function handleMessage(message: ServerMessage): void {
       return;
     case MSG_INVITE_INFO:
       invite.set(message);
+      return;
+    case MSG_INTERFACE_CHOICES:
+      interfaceChoices.set(message);
       return;
     case MSG_ERROR:
       connectionError.set(message.message);
@@ -287,4 +292,8 @@ export function cancelOffer(transferID: string): void {
 
 export function cancelTransfer(transferID: string): void {
   send({ type: MSG_TRANSFER_CANCEL, transferId: transferID });
+}
+
+export function pickInterface(interfaceId: string): void {
+  send({ type: MSG_PICK_INTERFACE, interfaceId });
 }

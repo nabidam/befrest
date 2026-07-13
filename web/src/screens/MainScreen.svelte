@@ -13,6 +13,7 @@
   export let loading = false;
   export let onRename: (name: string) => void;
   export let onCancel: (transferID: string, pending: boolean) => void;
+  export let onChangeNetwork: () => void;
 
   let inviteOpen = false;
 </script>
@@ -35,4 +36,4 @@
   <Footer onOpen={() => (inviteOpen = true)} />
 </main>
 
-<InviteSheet open={inviteOpen} onClose={() => (inviteOpen = false)} />
+<InviteSheet open={inviteOpen} onClose={() => (inviteOpen = false)} {onChangeNetwork} />

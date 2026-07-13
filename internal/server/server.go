@@ -11,9 +11,11 @@ import (
 // Config supplies the launch-time details that the control socket shares with
 // clients. Empty values keep New suitable for isolated server tests.
 type Config struct {
-	HostToken string
-	HostName  string
-	Invite    proto.InviteInfo
+	HostToken        string
+	HostName         string
+	Invite           proto.InviteInfo
+	InterfaceChoices []proto.InterfaceChoice
+	PickInterface    func(string) (proto.InviteInfo, error)
 }
 
 // New serves the SPA and its generated assets from the embedded web build.

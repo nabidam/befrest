@@ -24,14 +24,16 @@ const (
 
 // webSocketHub translates control-socket frames into presence registry calls.
 type webSocketHub struct {
-	registry  *presence.Registry
-	transfers *transfer.Manager
-	mu        sync.RWMutex
-	sockets   map[string]*websocket.Conn
-	muting    atomic.Int32
-	hostToken string
-	hostName  string
-	invite    proto.InviteInfo
+	registry         *presence.Registry
+	transfers        *transfer.Manager
+	mu               sync.RWMutex
+	sockets          map[string]*websocket.Conn
+	muting           atomic.Int32
+	hostToken        string
+	hostName         string
+	invite           proto.InviteInfo
+	interfaceChoices []proto.InterfaceChoice
+	pickInterface    func(string) (proto.InviteInfo, error)
 }
 
 func newWebSocketHub(configs ...Config) *webSocketHub {
@@ -40,10 +42,12 @@ func newWebSocketHub(configs ...Config) *webSocketHub {
 		config = configs[0]
 	}
 	hub := &webSocketHub{
-		sockets:   make(map[string]*websocket.Conn),
-		hostToken: config.HostToken,
-		hostName:  config.HostName,
-		invite:    config.Invite,
+		sockets:          make(map[string]*websocket.Conn),
+		hostToken:        config.HostToken,
+		hostName:         config.HostName,
+		invite:           config.Invite,
+		interfaceChoices: append([]proto.InterfaceChoice(nil), config.InterfaceChoices...),
+		pickInterface:    config.PickInterface,
 	}
 	hub.registry = presence.NewRegistry(hub.broadcastDevices)
 	hub.transfers = transfer.NewManager(hub.notifyTransfer)
@@ -181,6 +185,21 @@ func (h *webSocketHub) serveWS(writer http.ResponseWriter, request *http.Request
 			if err := json.Unmarshal(frame, &cancel); err != nil || h.transfers.CancelTransfer(cancel.TransferID, deviceID) != nil {
 				h.writeError(conn, "bad-request", "transfer cannot be cancelled")
 			}
+		case proto.MsgPickInterface:
+			var pick proto.PickInterface
+			if err := json.Unmarshal(frame, &pick); err != nil || !h.isHost(deviceID) || h.pickInterface == nil {
+				h.writeError(conn, "bad-request", "interface cannot be selected")
+				continue
+			}
+			invite, err := h.pickInterface(pick.InterfaceID)
+			if err != nil {
+				h.writeError(conn, "bad-request", "unknown network interface")
+				continue
+			}
+			h.mu.Lock()
+			h.invite = invite
+			h.mu.Unlock()
+			h.broadcastInvite()
 		default:
 			h.writeError(conn, "bad-request", "unsupported message type")
 		}
@@ -284,6 +303,7 @@ func (h *webSocketHub) joinID(conn *websocket.Conn, name, kind string, isHost bo
 	h.mu.Unlock()
 	h.write(conn, welcome(device))
 	h.writeInvite(conn)
+	h.writeInterfaceChoices(conn, device.ID)
 	h.broadcastDevices(h.registry.Snapshot())
 	return device.ID
 }
@@ -302,9 +322,41 @@ func (h *webSocketHub) consumeHostToken(token string) bool {
 }
 
 func (h *webSocketHub) writeInvite(conn *websocket.Conn) {
-	if h.invite.Port != 0 {
-		h.write(conn, h.invite)
+	h.mu.RLock()
+	invite := h.invite
+	h.mu.RUnlock()
+	if invite.Port != 0 {
+		h.write(conn, invite)
 	}
+}
+
+func (h *webSocketHub) writeInterfaceChoices(conn *websocket.Conn, deviceID string) {
+	if !h.isHost(deviceID) || len(h.interfaceChoices) == 0 {
+		return
+	}
+	h.write(conn, proto.InterfaceChoices{Type: proto.MsgInterfaceChoices, Choices: h.interfaceChoices, Preselected: h.interfaceChoices[0].ID})
+}
+
+func (h *webSocketHub) broadcastInvite() {
+	h.mu.RLock()
+	connections := make([]*websocket.Conn, 0, len(h.sockets))
+	for _, conn := range h.sockets {
+		connections = append(connections, conn)
+	}
+	invite := h.invite
+	h.mu.RUnlock()
+	for _, conn := range connections {
+		h.write(conn, invite)
+	}
+}
+
+func (h *webSocketHub) isHost(deviceID string) bool {
+	for _, device := range h.registry.Snapshot() {
+		if device.ID == deviceID {
+			return device.IsHost
+		}
+	}
+	return false
 }
 
 func (h *webSocketHub) remove(deviceID string) {

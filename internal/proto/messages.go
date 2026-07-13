@@ -24,6 +24,8 @@ const (
 	MsgOfferCancelled   = "offer-cancelled"
 	MsgTransferFailed   = "transfer-failed"
 	MsgInviteInfo       = "invite-info"
+	MsgInterfaceChoices = "interface-choices"
+	MsgPickInterface    = "pick-interface"
 )
 
 // Device is the wire representation of a connected device.
@@ -71,6 +73,23 @@ type InviteInfo struct {
 type InviteURLs struct {
 	MDNS string `json:"mdns"`
 	IP   string `json:"ip"`
+}
+
+type InterfaceChoice struct {
+	ID      string `json:"id"`
+	Kind    string `json:"kind"`
+	Address string `json:"address"`
+}
+
+type InterfaceChoices struct {
+	Type        string            `json:"type"`
+	Choices     []InterfaceChoice `json:"choices"`
+	Preselected string            `json:"preselected"`
+}
+
+type PickInterface struct {
+	Type        string `json:"type"`
+	InterfaceID string `json:"interfaceId"`
 }
 
 type Devices struct {

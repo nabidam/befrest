@@ -1,9 +1,10 @@
 <script lang="ts">
   import QRCode from 'qrcode';
-  import { invite } from '../lib/stores';
+  import { invite, self } from '../lib/stores';
 
   export let open = false;
   export let onClose: () => void;
+  export let onChangeNetwork: () => void;
 
   let qrCode = '';
   let copiedURL: string | null = null;
@@ -45,6 +46,12 @@
       <p>
         <button type="button" on:click={() => copyURL($invite.urls.ip)}>{$invite.urls.ip}</button>
       </p>
+      {#if $self?.isHost}
+        <p><button type="button" on:click={onChangeNetwork}>Wrong network? Change network</button></p>
+      {/if}
+      {#if $invite.reachabilityHint}
+        <p role="status">{$invite.reachabilityHint}</p>
+      {/if}
       {#if copiedURL}
         <p aria-live="polite">Copied {copiedURL}</p>
       {/if}

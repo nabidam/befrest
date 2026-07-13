@@ -55,3 +55,13 @@ func TestRankReportsAmbiguousTopCandidates(t *testing.T) {
 		t.Fatalf("top-ranked candidate = %q, want deterministic eth0", result.Candidates[0].ID)
 	}
 }
+
+func TestCandidateByID(t *testing.T) {
+	candidate, ok := CandidateByID([]Candidate{{ID: "wlan0", Address: "192.168.1.30"}}, "wlan0")
+	if !ok || candidate.Address != "192.168.1.30" {
+		t.Fatalf("CandidateByID() = (%#v, %t), want wlan0", candidate, ok)
+	}
+	if _, ok := CandidateByID(nil, "missing"); ok {
+		t.Fatal("CandidateByID() found a missing candidate")
+	}
+}
