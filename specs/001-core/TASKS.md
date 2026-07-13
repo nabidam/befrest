@@ -109,6 +109,8 @@ Task order is execution order. Walking-skeleton tasks (T0–T14) may not be reor
   - Two clients requesting "Pixel 8" → second renders as "Pixel 8 (2)" (AC-12).
 - **Difficulty:** medium.
 - **NOT:** no reconnect/backoff (T11), no rename ✎ (T11), no transfer UI (T7), no invite/QR (T10), no styling (T19).
+- **Status:** Done — `af0ffff`
+- **Verification evidence:** `make build && go test ./internal/server -count=1 && go test ./... && make test` passed; the built binary served the embedded SPA at `http://localhost:54321`, and the real-socket presence test exercised hello/set-name, deduplicated device snapshots, and removal after socket close.
 
 **Interfaces**
 - CONSUMES (from T2, ARCH §4.2): the wire protocol quoted in T2 — client sends `hello{deviceId?, name?}` as first frame, then `set-name{name}`; receives `welcome{deviceId, self, isHost}` (persist `deviceId`), `need-name{suggested}` (show S1), `devices{devices: Device[]}` (grid; filter self). `Device` JSON shape: `{id, name, rawName, kind: "mobile"|"desktop", isHost, connectedAt}` mirroring ARCH §3.
