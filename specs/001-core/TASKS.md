@@ -435,6 +435,8 @@ Task order is execution order. Walking-skeleton tasks (T0–T14) may not be reor
   - `netinfo` unit tests cover ranking: `wl*` beats `docker*`, default-route wins ties.
 - **Difficulty:** medium.
 - **NOT:** no IPv6-only support, no continuous interface watching (startup + M3 re-pick only), no persistence of the choice.
+- **Status:** Done — `ef7e51c`
+- **Verification evidence:** `GOCACHE=/tmp/befrest-go-cache go test ./internal/server -run 'TestWebSocketHostPicksInterfaceAndRefreshesInvites|TestWebSocketHostTokenJoinsHostAndSendsInviteInfo' -count=1 && npm --prefix web run build && make build` passed; the real WebSocket test authenticated a host, selected `tun0`, and observed the refreshed IP invite on both host and guest sockets.
 
 **Interfaces**
 - CONSUMES: T8 candidates/ambiguity; T9's `invite-info` re-send path; T10's InviteSheet + `invite` store.
