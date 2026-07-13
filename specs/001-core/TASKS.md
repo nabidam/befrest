@@ -528,6 +528,8 @@ Task order is execution order. Walking-skeleton tasks (T0–T14) may not be reor
 - CONSUMES: the full running app — flags contract (ARCH §8: `--no-open`, `--no-mdns`, `--port`); UI surfaces as styled in T19/T20.
 - PRODUCES: `make e2e` target consumed by T22's release discipline.
 - **Context pack (hints):** ARCHITECTURE.md §8, UX.md F1–F4 flow tables (drive the specs), Makefile from T0, PLAN.md Chunk 13. Test task: no DESIGN.md.
+- **Status:** Done — `563a2cc`
+- **Verification evidence:** `make e2e` green from a clean build (4/4: kernel journey + all three failure specs), plus `make test` (Go) and `npm --prefix web test` (14 vitest) passing. The launched hub binary ran under `--no-open --no-mdns --port 54321`; `kernel.spec.ts` drove two browser contexts through join, mutual presence, offer/accept with a byte-for-byte assertion on the downloaded payload, decline, and receiver leave/rejoin without re-showing S1; `failures.spec.ts` throttled the sender upload via CDP so offer-cancel closed the receiver M1, mid-transfer cancel surfaced "cancelled the transfer", and closing the receiver context mid-transfer surfaced "Transfer failed — … disconnected".
 
 ---
 
