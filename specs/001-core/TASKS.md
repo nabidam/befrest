@@ -225,6 +225,8 @@ Task order is execution order. Walking-skeleton tasks (T0–T14) may not be reor
   - Single clear winner returned when one exists; ambiguity reported distinctly (consumed in T17 — until then callers take the top-ranked, PLAN Chunk 5).
 - **Difficulty:** low.
 - **NOT:** no M3/interface-choices (T17), no reachability probe (T17), no mDNS here (announce wired in T9), no continuous watching (ARCH §2: "consulted once at startup plus on M3 re-pick").
+- **Status:** Done — `c4837af`
+- **Verification evidence:** `go test ./internal/netinfo -count=1 -v` passed, exercising private-IPv4 filtering, physical-over-virtual ranking, default-route tie-breaking, and ambiguous-result reporting; `go test ./... && make test` also passed.
 
 **Interfaces**
 - CONSUMES: nothing from other tasks.
