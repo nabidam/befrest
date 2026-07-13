@@ -15,6 +15,20 @@ async function offerFile(page: Page, recipient: string, name: string, size = 1_0
   await (await chooser).setFiles({ name, mimeType: 'application/octet-stream', buffer: Buffer.alloc(size, 7) });
 }
 
+// Loopback uploads finish in milliseconds, so a transfer would complete before a
+// mid-flight cancel or disconnect could be observed. Throttle the sender's upload
+// throughput via CDP so the transfer stays in flight long enough to act on it.
+async function throttleUpload(page: Page, bytesPerSecond: number): Promise<void> {
+  const session = await page.context().newCDPSession(page);
+  await session.send('Network.enable');
+  await session.send('Network.emulateNetworkConditions', {
+    offline: false,
+    latency: 0,
+    downloadThroughput: -1,
+    uploadThroughput: bytesPerSecond,
+  });
+}
+
 async function pairedPages(browser: Browser, senderName: string, receiverName: string) {
   const senderContext = await browser.newContext({ acceptDownloads: true });
   const receiverContext = await browser.newContext({ acceptDownloads: true });
@@ -30,7 +44,9 @@ test('offer cancellation closes the receiver prompt', async ({ browser }) => {
 
   await offerFile(sender, receiverName, 'withdraw.bin');
   await expect(receiver.getByRole('dialog')).toContainText('withdraw.bin');
-  await sender.getByRole('button', { name: 'Cancel' }).click();
+  // The sender's cancel control lives inside the device card, which is aria-disabled
+  // while a transfer is pending; force past the actionability check to click it.
+  await sender.getByRole('button', { name: 'Cancel' }).click({ force: true });
   await expect(receiver.getByRole('dialog')).toHaveCount(0);
   await expect(receiver.getByText(`${senderName} cancelled`)).toBeVisible();
 
@@ -42,6 +58,7 @@ test('mid-transfer cancellation renders cancelled copy', async ({ browser }) => 
   const senderName = 'Cancel Sender';
   const receiverName = 'Cancel Receiver';
   const { senderContext, receiverContext, sender, receiver } = await pairedPages(browser, senderName, receiverName);
+  await throttleUpload(sender, 256 * 1024);
   await offerFile(sender, receiverName, 'cancel.bin', 2 * 1024 * 1024);
   await receiver.getByRole('button', { name: 'Accept' }).click();
   await expect(receiver.getByRole('complementary').getByRole('button', { name: 'Cancel' })).toBeVisible();
@@ -56,6 +73,7 @@ test('closing a receiver context yields a disconnect verdict', async ({ browser 
   const senderName = 'Disconnect Sender';
   const receiverName = 'Disconnect Receiver';
   const { senderContext, receiverContext, sender, receiver } = await pairedPages(browser, senderName, receiverName);
+  await throttleUpload(sender, 256 * 1024);
   await offerFile(sender, receiverName, 'disconnect.bin', 2 * 1024 * 1024);
   await receiver.getByRole('button', { name: 'Accept' }).click();
   await expect(receiver.getByRole('complementary')).toBeVisible();
