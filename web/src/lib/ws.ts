@@ -22,7 +22,7 @@ import {
 } from './proto';
 import { beginUpload, registerOfferFiles } from './upload';
 import { downloadFile } from './download';
-import { connection, connectionError, devices, needsName, offers, self, suggestedName, toasts, transfers, type Toast, type TransferStatus } from './stores';
+import { connection, connectionError, devices, invite, needsName, offers, self, suggestedName, toasts, transfers, type Toast, type TransferStatus } from './stores';
 
 const DEVICE_ID_KEY = 'befrest.deviceId';
 const NAME_KEY = 'befrest.name';
@@ -109,6 +109,7 @@ function handleMessage(message: ServerMessage): void {
       devices.set(message.devices);
       return;
     case MSG_INVITE_INFO:
+      invite.set(message);
       return;
     case MSG_ERROR:
       connectionError.set(message.message);

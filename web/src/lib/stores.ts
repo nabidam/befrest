@@ -1,5 +1,5 @@
 import { writable } from 'svelte/store';
-import type { Device, Transfer } from './proto';
+import type { Device, InviteInfoMessage, Transfer } from './proto';
 
 export type ConnectionState = 'connecting' | 'ready' | 'joining' | 'connected' | 'error';
 
@@ -9,6 +9,7 @@ export const devices = writable<Device[]>([]);
 export const needsName = writable(true);
 export const suggestedName = writable('');
 export const connectionError = writable<string | null>(null);
+export const invite = writable<InviteInfoMessage | null>(null);
 
 export interface IncomingOffer {
   transfer: Transfer;
