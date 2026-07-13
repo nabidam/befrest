@@ -1,20 +1,34 @@
 import {
+  MSG_ACCEPT,
   MSG_DEVICES,
+  MSG_DECLINE,
   MSG_ERROR,
+  MSG_FILE_READY,
   MSG_HELLO,
   MSG_NEED_NAME,
+  MSG_OFFER,
+  MSG_OFFER_CREATED,
+  MSG_PROGRESS,
   MSG_SET_NAME,
+  MSG_TRANSFER_ACCEPTED,
+  MSG_TRANSFER_DECLINED,
+  MSG_TRANSFER_DONE,
   MSG_WELCOME,
+  type OfferRequestMessage,
   type Device,
+  type Transfer,
   type ServerMessage,
 } from './proto';
-import { connection, connectionError, devices, needsName, self, suggestedName } from './stores';
+import { beginUpload, registerOfferFiles } from './upload';
+import { downloadFile } from './download';
+import { connection, connectionError, devices, needsName, offers, self, suggestedName, toasts, transfers, type Toast, type TransferStatus } from './stores';
 
 const DEVICE_ID_KEY = 'befrest.deviceId';
 const NAME_KEY = 'befrest.name';
 
 let socket: WebSocket | null = null;
 let started = false;
+let nextToastID = 0;
 
 function storedIdentity(): { deviceId?: string; name?: string } {
   const deviceId = localStorage.getItem(DEVICE_ID_KEY) ?? undefined;
@@ -35,6 +49,39 @@ function send(message: object): boolean {
   }
   socket.send(JSON.stringify(message));
   return true;
+}
+
+function addToast(message: string, tone: Toast['tone'] = 'info'): void {
+  const toast = { id: ++nextToastID, message, tone };
+  toasts.update((items) => [...items, toast]);
+  window.setTimeout(() => {
+    toasts.update((items) => items.filter((item) => item.id !== toast.id));
+  }, 4_000);
+}
+
+function setTransfer(transfer: Transfer, direction: TransferStatus['direction']): void {
+  transfers.update((items) => ({
+    ...items,
+    [transfer.id]: {
+      transfer,
+      direction,
+      index: 0,
+      sent: 0,
+      size: transfer.files[0]?.size ?? 0,
+      totalSent: 0,
+      totalSize: transfer.files.reduce((total, file) => total + file.size, 0),
+    },
+  }));
+}
+
+function clearTransfer(transferID: string): TransferStatus | undefined {
+  let current: TransferStatus | undefined;
+  transfers.update((items) => {
+    current = items[transferID];
+    const { [transferID]: _, ...remaining } = items;
+    return remaining;
+  });
+  return current;
 }
 
 function handleMessage(message: ServerMessage): void {
@@ -58,6 +105,49 @@ function handleMessage(message: ServerMessage): void {
     case MSG_ERROR:
       connectionError.set(message.message);
       connection.set('error');
+      addToast(message.message);
+      return;
+    case MSG_OFFER_CREATED:
+      registerOfferFiles(message.transfer);
+      setTransfer(message.transfer, 'sending');
+      return;
+    case MSG_OFFER:
+      offers.update((items) => [...items, { transfer: message.transfer, from: message.from }]);
+      setTransfer(message.transfer, 'receiving');
+      return;
+    case MSG_TRANSFER_ACCEPTED:
+      void beginUpload(message.transferId);
+      return;
+    case MSG_TRANSFER_DECLINED: {
+      const transfer = clearTransfer(message.transferId);
+      addToast(`${transfer?.transfer.files[0]?.name ?? 'Transfer'} was declined`);
+      return;
+    }
+    case MSG_FILE_READY:
+      downloadFile(message.transferId, message.index);
+      return;
+    case MSG_PROGRESS:
+      transfers.update((items) => {
+        const transfer = items[message.transferId];
+        if (!transfer) return items;
+        return {
+          ...items,
+          [message.transferId]: {
+            ...transfer,
+            index: message.index,
+            sent: message.sent,
+            size: message.size,
+            totalSent: message.totalSent,
+            totalSize: message.totalSize,
+          },
+        };
+      });
+      return;
+    case MSG_TRANSFER_DONE: {
+      const transfer = clearTransfer(message.transferId);
+      addToast(transfer?.direction === 'receiving' ? 'Saved to Downloads ✓' : 'Sent ✓', 'success');
+      return;
+    }
   }
 }
 
@@ -99,4 +189,18 @@ export function setName(name: string): void {
   connection.set('joining');
   connectionError.set(null);
   send({ type: MSG_SET_NAME, name: trimmedName });
+}
+
+export function offerFiles(to: string, files: File[]): boolean {
+  const message: OfferRequestMessage = {
+    type: MSG_OFFER,
+    to,
+    files: files.map((file) => ({ name: file.name, size: file.size })),
+  };
+  return send(message);
+}
+
+export function respondToOffer(transferID: string, accepted: boolean): void {
+  offers.update((items) => items.filter((offer) => offer.transfer.id !== transferID));
+  send({ type: accepted ? MSG_ACCEPT : MSG_DECLINE, transferId: transferID });
 }

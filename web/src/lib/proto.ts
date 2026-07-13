@@ -77,10 +77,14 @@ export interface Transfer {
 
 export interface OfferMessage {
   type: typeof MSG_OFFER;
-  to?: string;
-  files?: FileMeta[];
-  transfer?: Transfer;
-  from?: Device;
+  transfer: Transfer;
+  from: Device;
+}
+
+export interface OfferRequestMessage {
+  type: typeof MSG_OFFER;
+  to: string;
+  files: Pick<FileMeta, 'name' | 'size'>[];
 }
 
 export interface TransferIDMessage {
@@ -112,6 +116,11 @@ export interface ProgressMessage {
   size: number;
   totalSent: number;
   totalSize: number;
+}
+
+export interface ClientTransferIDMessage {
+  type: typeof MSG_ACCEPT | typeof MSG_DECLINE;
+  transferId: string;
 }
 
 export type ServerMessage =

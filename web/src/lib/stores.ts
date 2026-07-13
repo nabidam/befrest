@@ -1,5 +1,5 @@
 import { writable } from 'svelte/store';
-import type { Device } from './proto';
+import type { Device, Transfer } from './proto';
 
 export type ConnectionState = 'connecting' | 'ready' | 'joining' | 'connected' | 'error';
 
@@ -9,3 +9,28 @@ export const devices = writable<Device[]>([]);
 export const needsName = writable(true);
 export const suggestedName = writable('');
 export const connectionError = writable<string | null>(null);
+
+export interface IncomingOffer {
+  transfer: Transfer;
+  from: Device;
+}
+
+export interface TransferStatus {
+  transfer: Transfer;
+  direction: 'sending' | 'receiving';
+  index: number;
+  sent: number;
+  size: number;
+  totalSent: number;
+  totalSize: number;
+}
+
+export interface Toast {
+  id: number;
+  message: string;
+  tone: 'success' | 'info';
+}
+
+export const offers = writable<IncomingOffer[]>([]);
+export const transfers = writable<Record<string, TransferStatus>>({});
+export const toasts = writable<Toast[]>([]);
