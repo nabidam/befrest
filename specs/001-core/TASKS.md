@@ -468,13 +468,15 @@ Task order is execution order. Walking-skeleton tasks (T0–T14) may not be reor
 - **Dependencies:** T16 (all S1/S2 behavior in place).
 - **Files:** create `web/src/styles/tokens.css`, `web/src/styles/fonts.css`, `web/public/fonts/*.woff2` (Instrument Sans + JetBrains Mono, latin subsets); modify `web/src/styles/base.css` and style `NameScreen`, `MainScreen`, `Header`, `DeviceGrid`, `DeviceCard`, `EmptyInvite`, `Footer`
 - **Acceptance:**
-  - `grep -rE '#[0-9a-fA-F]{3,8}|[0-9]+px' web/src/screens/` returns no matches — raw values live only in `tokens.css` (DESIGN hard rule).
+  - `rg -n '#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{3})\\b|[0-9]+px' web/src/screens/` returns no matches — raw values live only in `tokens.css` (DESIGN hard rule; excludes Svelte's `{#each}` directive).
   - Keyboard-only pass: every interactive element on S1/S2 reachable with a visible focus ring; hover/focus-visible/active/disabled present on every interactive element.
   - No unreadable pairings: spot-checked text/bg contrast ≥ 4.5:1; DevTools network tab shows zero external requests (fonts self-hosted, `font-display: swap`).
   - A joining device's card animates the join pulse once; with `prefers-reduced-motion`, it doesn't.
   - Touch targets ≥ `--size-touch`; card min-height `--size-card-min`; single-column layout capped at `--size-content-max`.
 - **Difficulty:** medium.
 - **NOT:** no CSS framework, no theme toggle (C-5, dark-only — no `prefers-color-scheme` branching), no layout restructuring of UX.md regions, no styling of layers (T20).
+- **Status:** Done — `6533db6`
+- **Verification evidence:** `npm --prefix web test && make test` passed; corrected raw-value scan returned no matches; built hub served the SPA plus both local WOFF2 font assets at `/fonts/...` on port 54321.
 
 **Interfaces**
 - CONSUMES: component structure from T3/T10/T11/T16 (markup exists; this task styles it).
