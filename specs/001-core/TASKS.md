@@ -324,6 +324,8 @@ Task order is execution order. Walking-skeleton tasks (T0–T14) may not be reor
   - Reasons emitted are exactly the five ARCH §4.2 values — a test enumerates them.
 - **Difficulty:** high.
 - **NOT:** no resume, no retry, no partial-file salvage; no client UI (T13).
+- **Status:** Done — `7f3a07b`
+- **Verification evidence:** `go test -race ./internal/transfer ./internal/server && npm --prefix web test && npm --prefix web run build && go test ./... && make test` passed; manager tests drove sender offer-cancel, both mid-stream cancellation roles, sender/receiver disconnect sweeps, and an injected relay deadline, observing exactly one authoritative terminal verdict per party.
 
 **Interfaces**
 - CONSUMES: T6 manager/state machine + T5 pipe teardown; T11's "close ⇒ fanout" hook.
