@@ -149,6 +149,8 @@ Task order is execution order. Walking-skeleton tasks (T0–T14) may not be reor
   - Closing either end unblocks the other with an error (teardown groundwork for T12).
 - **Difficulty:** medium (concurrency correctness).
 - **NOT:** no deadlines yet (T12), no progress accounting (T6), no HTTP types — "handlers hand `io.Reader`/`Writer` in" (ARCH §2).
+- **Status:** Done — `c894bed`
+- **Verification evidence:** `go test -race ./internal/transfer -count=1 && go test ./... && make test` passed; the relay test streamed a 100 MiB deterministic byte stream through real pipe endpoints, observed a matching SHA-256 digest with <16 MiB heap growth, and exercised blocking backpressure, zero-byte EOF, and close teardown.
 
 **Interfaces**
 - CONSUMES: nothing beyond stdlib.
