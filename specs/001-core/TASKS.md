@@ -350,6 +350,8 @@ Task order is execution order. Walking-skeleton tasks (T0–T14) may not be reor
   - Upload fetch errors are ignored in favor of the WS verdict (ARCH §7) — observable: killing the download mid-stream still yields exactly one failure toast, from the WS event.
 - **Difficulty:** medium.
 - **NOT:** no reason strings invented outside the copy table; no retry UI; no styling.
+- **Status:** Done — `dc15ebd`
+- **Verification evidence:** `npm --prefix web test && npm --prefix web run build && go test ./... && make test` passed; `make build` then the running binary served the embedded SPA at `http://127.0.0.1:54321/`, while table-driven Vitest cases exercised every transfer-failure and offer-cancellation copy mapping.
 
 **Interfaces**
 - CONSUMES (from T12, quoted there): `offer-cancel`/`transfer-cancel` C→H; `offer-cancelled{transferId, reason}` and the five-reason `transfer-failed` H→C; hub-is-verdict rule.
