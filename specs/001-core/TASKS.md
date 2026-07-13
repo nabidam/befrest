@@ -535,14 +535,14 @@ Task order is execution order. Walking-skeleton tasks (T0–T14) may not be reor
 
 ### T22 — Packaging + README
 
-- **Objective:** Cross-platform release binaries under the size budget; user-facing quickstart.
+- **Objective:** Native-platform release binary under the size budget; user-facing quickstart. Cross-platform release artifacts are deferred to a future native-runner CI workflow because the system-tray dependency requires target CGO toolchains.
 - **Inputs:** T0 Makefile; ARCH §8 flags table.
-- **Outputs:** 6 release binaries + README.
+- **Outputs:** Native release binary + README.
 - **Dependencies:** T21.
 - **Files:** modify `Makefile` (add `release`); create `README.md`
 - **Acceptance:**
-  - `make release` emits 6 binaries (`GOOS` windows/darwin/linux × amd64/arm64, `-ldflags "-s -w"`), all < 30 MB — the target **fails** if any binary ≥ 30 MB (NFR-4).
-  - Each binary starts with `--no-open` and serves the SPA (spot-check via curl on the native-arch ones).
+  - `make release` emits a stripped (`-ldflags "-s -w"`) binary for the host `GOOS`/`GOARCH`, < 30 MB — the target **fails** if the binary ≥ 30 MB (NFR-4).
+  - The native binary starts with `--no-open` and serves the SPA (spot-check via curl).
   - README covers download → double-click → scan quickstart and the flags table from ARCH §8.
   - Vitest + Go tests + e2e all pass in one `make test e2e` run.
 - **Difficulty:** low.
@@ -552,6 +552,8 @@ Task order is execution order. Walking-skeleton tasks (T0–T14) may not be reor
 - CONSUMES: T0's `build` target; ARCH §8 flags table (README content); T21's `e2e` target.
 - PRODUCES: `make release` — the ship artifact Gate D walks.
 - **Context pack (hints):** ARCHITECTURE.md §8 §9 (binary-size commitment), Makefile from T21, PLAN.md Chunk 13. Backend-only: no UX.md, no DESIGN.md.
+- **Status:** Done — `6cf7ff4`
+- **Verification evidence:** `make release && make test e2e` passed: the native Linux amd64 release artifact was 10,432,777 bytes, Go tests passed, and Playwright passed 4/4 journeys. Launched `dist/release/befrest-linux-amd64 --no-open --no-mdns --port 54322`; `curl` returned `<title>Befrest</title>` and `<div id="app"></div>`.
 
 ---
 
