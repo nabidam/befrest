@@ -203,6 +203,8 @@ Task order is execution order. Walking-skeleton tasks (T0–T14) may not be reor
   - `format.ts` Vitest: 0 B, 1.3 GB, 2.0 GB renderings.
 - **Difficulty:** high.
 - **NOT:** no cancel buttons (T13), no drag-and-drop (T16), no multi-file "N of M" UI (T15), no keep-screen-on hint (T16), no styling (T19/T20).
+- **Status:** Done — `5d2ae1a`
+- **Verification evidence:** `npm --prefix web test && npm --prefix web run build && go test ./... && make test` passed; `make build` then the running binary served the embedded SPA at `http://127.0.0.1:54321/`, while the existing real-WebSocket/HTTP relay lifecycle test exercised offer/accept, streaming, progress, and terminal transfer events.
 
 **Interfaces**
 - CONSUMES (from T6, quoted there): WS frames `offer`/`accept`/`decline`, `offer-created`/`offer`/`transfer-accepted`/`transfer-declined`/`file-ready`/`progress`/`transfer-done`; HTTP `POST`/`GET /api/transfers/{tid}/files/{idx}` contracts. Multi-file rule (ARCH §4.2): "on `transfer-accepted`, sender uploads file 0; hub emits `file-ready(0)`; … One in-flight file per transfer." Browser sets Content-Length from the `File` blob.
