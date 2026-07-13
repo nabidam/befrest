@@ -247,7 +247,9 @@ Task order is execution order. Walking-skeleton tasks (T0–T14) may not be reor
   - `http://befrest.local:<port>` typed on another LAN device loads the app (AC-14); `--no-mdns` disables the announce.
   - Tray Quit exits the process and releases the port (FR-1.7). `--no-open` suppresses the browser.
   - Every client receives `invite-info` after `welcome`; both URLs include the bound port; a WS test asserts the frame shape.
-  - Second hub instance binds the next port and its `invite-info` carries that actual port (AC-13).
+- Second hub instance binds the next port and its `invite-info` carries that actual port (AC-13).
+- **Status:** Done — `58539f1`
+- **Verification evidence:** `npm --prefix web test && go test ./... && make test && make build` passed; `TestWebSocketHostTokenJoinsHostAndSendsInviteInfo` drove a real socket through one-time host authentication and verified host identity plus the exact port-bearing invite frame; the built binary served its SPA under `--no-open --no-mdns` in a local runtime smoke check.
 - **Difficulty:** medium.
 - **NOT:** no M3/interface-choices, no reachability probe, no `--interface`/`--name` flags (T17); no client UI (T10).
 
