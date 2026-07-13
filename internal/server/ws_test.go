@@ -63,6 +63,36 @@ func TestWebSocketRejectsBadUpgrade(t *testing.T) {
 	}
 }
 
+func TestWebSocketRenameDeduplicatesAndFansOut(t *testing.T) {
+	handler, err := New(fstest.MapFS{"dist/index.html": &fstest.MapFile{Data: []byte("Befrest")}})
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	server := httptest.NewServer(handler)
+	defer server.Close()
+
+	first := dialWS(t, server.URL, "Mozilla/5.0")
+	defer first.CloseNow()
+	writeFrame(t, first, proto.Hello{Type: proto.MsgHello, Name: "Laptop"})
+	_ = readFrame(t, first) // welcome
+	assertDevices(t, readFrame(t, first), "Laptop")
+
+	second := dialWS(t, server.URL, "Mozilla/5.0")
+	defer second.CloseNow()
+	writeFrame(t, second, proto.Hello{Type: proto.MsgHello, Name: "Phone"})
+	_ = readFrame(t, second) // welcome
+	assertDevices(t, readFrame(t, second), "Laptop", "Phone")
+	assertDevices(t, readFrame(t, first), "Laptop", "Phone")
+
+	writeFrame(t, second, proto.SetName{Type: proto.MsgSetName, Name: "Laptop"})
+	renamed := readFrame(t, second)
+	if renamed.Type != proto.MsgWelcome || renamed.Self.Name != "Laptop (2)" {
+		t.Fatalf("rename welcome = %#v, want deduplicated name", renamed)
+	}
+	assertDevices(t, readFrame(t, second), "Laptop", "Laptop (2)")
+	assertDevices(t, readFrame(t, first), "Laptop", "Laptop (2)")
+}
+
 func TestWebSocketHostTokenJoinsHostAndSendsInviteInfo(t *testing.T) {
 	handler, err := New(fstest.MapFS{"dist/index.html": &fstest.MapFile{Data: []byte("Befrest")}}, Config{
 		HostToken: "one-time-token",

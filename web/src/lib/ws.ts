@@ -22,7 +22,7 @@ import {
 } from './proto';
 import { beginUpload, registerOfferFiles } from './upload';
 import { downloadFile } from './download';
-import { connection, connectionError, devices, invite, needsName, offers, self, suggestedName, toasts, transfers, type Toast, type TransferStatus } from './stores';
+import { connection, connectionError, devices, devicesLoaded, invite, needsName, offers, self, suggestedName, toasts, transfers, type Toast, type TransferStatus } from './stores';
 
 const DEVICE_ID_KEY = 'befrest.deviceId';
 const NAME_KEY = 'befrest.name';
@@ -30,6 +30,9 @@ const NAME_KEY = 'befrest.name';
 let socket: WebSocket | null = null;
 let started = false;
 let nextToastID = 0;
+let reconnectAttempt = 0;
+let reconnectTimer: number | undefined;
+let loadingTimer: number | undefined;
 
 function storedIdentity(): { deviceId?: string; name?: string } {
   const deviceId = localStorage.getItem(DEVICE_ID_KEY) ?? undefined;
@@ -107,6 +110,7 @@ function handleMessage(message: ServerMessage): void {
       return;
     case MSG_DEVICES:
       devices.set(message.devices);
+      devicesLoaded.set(true);
       return;
     case MSG_INVITE_INFO:
       invite.set(message);
@@ -164,15 +168,30 @@ export function connect(): void {
   if (started) return;
   started = true;
 
+  openSocket();
+}
+
+function openSocket(): void {
+  if (reconnectTimer !== undefined) {
+    window.clearTimeout(reconnectTimer);
+    reconnectTimer = undefined;
+  }
+
   const identity = storedIdentity();
   needsName.set(!identity.name);
   connection.set('connecting');
-  socket = new WebSocket(socketURL());
+  devices.set([]);
+  devicesLoaded.set(false);
+  if (loadingTimer !== undefined) window.clearTimeout(loadingTimer);
+  loadingTimer = window.setTimeout(() => devicesLoaded.set(true), 2_000);
+  const nextSocket = new WebSocket(socketURL());
+  socket = nextSocket;
 
-  socket.addEventListener('open', () => {
+  nextSocket.addEventListener('open', () => {
+    reconnectAttempt = 0;
     send({ type: MSG_HELLO, ...identity, hostToken: hostToken() });
   });
-  socket.addEventListener('message', (event) => {
+  nextSocket.addEventListener('message', (event) => {
     try {
       handleMessage(JSON.parse(String(event.data)) as ServerMessage);
     } catch {
@@ -180,16 +199,23 @@ export function connect(): void {
       connection.set('error');
     }
   });
-  socket.addEventListener('error', () => {
+  nextSocket.addEventListener('close', () => {
+    if (socket !== nextSocket) return;
+    socket = null;
     connectionError.set("Can't reach the hub. Are you on the same wifi?");
-    connection.set('error');
+    connection.set('connecting');
+    scheduleReconnect();
   });
-  socket.addEventListener('close', () => {
-    if (socket) {
-      connectionError.set("Can't reach the hub. Are you on the same wifi?");
-      connection.set('error');
-    }
-  });
+}
+
+function scheduleReconnect(): void {
+  if (reconnectTimer !== undefined) return;
+  const delay = Math.min(500 * 2 ** reconnectAttempt, 8_000);
+  reconnectAttempt += 1;
+  reconnectTimer = window.setTimeout(() => {
+    reconnectTimer = undefined;
+    openSocket();
+  }, delay);
 }
 
 export function setName(name: string): void {

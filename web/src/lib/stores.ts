@@ -10,6 +10,7 @@ export const needsName = writable(true);
 export const suggestedName = writable('');
 export const connectionError = writable<string | null>(null);
 export const invite = writable<InviteInfoMessage | null>(null);
+export const devicesLoaded = writable(false);
 
 export interface IncomingOffer {
   transfer: Transfer;

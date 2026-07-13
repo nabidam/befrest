@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { connection, connectionError, devices, needsName, offers, self } from './lib/stores';
+  import { connection, connectionError, devices, devicesLoaded, needsName, offers, self } from './lib/stores';
   import { connect, respondToOffer, setName } from './lib/ws';
   import MainScreen from './screens/MainScreen.svelte';
   import NameScreen from './screens/NameScreen.svelte';
@@ -15,7 +15,7 @@
 {#if $needsName}
   <NameScreen joining={$connection === 'joining'} error={$connectionError} onJoin={setName} />
 {:else}
-  <MainScreen devices={otherDevices} />
+  <MainScreen devices={otherDevices} loading={!$devicesLoaded} onRename={setName} />
 {/if}
 
 <OfferModal offer={$offers[0] ?? null} onRespond={respondToOffer} />

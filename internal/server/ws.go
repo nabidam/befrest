@@ -8,12 +8,18 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 	"github.com/nabidam/befrest/internal/presence"
 	"github.com/nabidam/befrest/internal/proto"
 	"github.com/nabidam/befrest/internal/transfer"
+)
+
+const (
+	heartbeatInterval = 15 * time.Second
+	heartbeatTimeout  = 15 * time.Second
 )
 
 // webSocketHub translates control-socket frames into presence registry calls.
@@ -55,7 +61,8 @@ func (h *webSocketHub) serveWS(writer http.ResponseWriter, request *http.Request
 	}
 	defer conn.CloseNow()
 
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	var hello proto.Hello
 	if err := wsjson.Read(ctx, conn, &hello); err != nil || hello.Type != proto.MsgHello {
 		h.writeError(conn, "bad-request", "first message must be hello")
@@ -78,6 +85,8 @@ func (h *webSocketHub) serveWS(writer http.ResponseWriter, request *http.Request
 			return
 		}
 	}
+
+	go h.heartbeat(ctx, conn)
 
 	for {
 		var frame json.RawMessage
@@ -169,6 +178,34 @@ func (h *webSocketHub) serveWS(writer http.ResponseWriter, request *http.Request
 
 	if deviceID != "" {
 		h.remove(deviceID)
+	}
+}
+
+// heartbeat keeps liveness tied to the control socket even when neither side
+// has application frames to exchange. Two unanswered pings close the socket.
+func (h *webSocketHub) heartbeat(ctx context.Context, conn *websocket.Conn) {
+	ticker := time.NewTicker(heartbeatInterval)
+	defer ticker.Stop()
+
+	misses := 0
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			pingCtx, cancel := context.WithTimeout(ctx, heartbeatTimeout)
+			err := conn.Ping(pingCtx)
+			cancel()
+			if err == nil {
+				misses = 0
+				continue
+			}
+			misses++
+			if misses >= 2 {
+				_ = conn.Close(websocket.StatusGoingAway, "heartbeat timed out")
+				return
+			}
+		}
 	}
 }
 

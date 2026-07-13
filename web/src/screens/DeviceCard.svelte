@@ -5,6 +5,7 @@
   import { formatBytes } from '../lib/format';
 
   export let device: Device;
+  export let disabled = false;
 
   $: transfer = Object.values($transfers).find(
     (item) => item.direction === 'sending' && item.transfer.receiverId === device.id,
@@ -15,7 +16,7 @@
   }
 </script>
 
-<button type="button" aria-label={`Send files to ${device.name}`} on:click={pickFiles} disabled={Boolean(transfer)}>
+<button type="button" aria-label={`Send files to ${device.name}`} on:click={pickFiles} disabled={disabled || Boolean(transfer)}>
   {#if transfer}
     <h3>{device.name}</h3>
     <p>{transfer.transfer.files[transfer.index]?.name ?? 'Sending file'}</p>
