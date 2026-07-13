@@ -6,3 +6,33 @@ export function formatBytes(bytes: number): string {
   const value = bytes / 1_000 ** unit;
   return `${value.toFixed(1)} ${units[unit]}`;
 }
+
+export type TransferFailureReason =
+  | 'sender-disconnected'
+  | 'receiver-disconnected'
+  | 'cancelled-by-sender'
+  | 'cancelled-by-receiver'
+  | 'stream-error';
+
+export type OfferCancellationReason = 'sender-cancelled' | 'sender-disconnected';
+
+const transferFailureCopy: Record<TransferFailureReason, (counterpart: string) => string> = {
+  'sender-disconnected': (counterpart) => `Transfer failed — ${counterpart} disconnected`,
+  'receiver-disconnected': (counterpart) => `Transfer failed — ${counterpart} disconnected`,
+  'cancelled-by-sender': (counterpart) => `${counterpart} cancelled the transfer`,
+  'cancelled-by-receiver': (counterpart) => `${counterpart} cancelled the transfer`,
+  'stream-error': () => 'Transfer failed',
+};
+
+const offerCancellationCopy: Record<OfferCancellationReason, (sender: string) => string> = {
+  'sender-cancelled': (sender) => `${sender} cancelled`,
+  'sender-disconnected': (sender) => `${sender} cancelled`,
+};
+
+export function formatTransferFailure(reason: TransferFailureReason, counterpart = 'The other device'): string {
+  return transferFailureCopy[reason](counterpart);
+}
+
+export function formatOfferCancellation(reason: OfferCancellationReason, sender = 'The sender'): string {
+  return offerCancellationCopy[reason](sender);
+}

@@ -12,6 +12,7 @@
   export let devices: Device[] = [];
   export let loading = false;
   export let onRename: (name: string) => void;
+  export let onCancel: (transferID: string, pending: boolean) => void;
 
   let inviteOpen = false;
 </script>
@@ -19,7 +20,7 @@
 <main aria-labelledby="main-title">
   <Header {onRename} />
   <ConnectionBanner />
-  <ReceiveBanner />
+  <ReceiveBanner onCancel={(transferID) => onCancel(transferID, false)} />
   {#if loading}
     <section aria-label="Loading devices" aria-busy="true">
       <p>Loading devices…</p>
@@ -29,7 +30,7 @@
   {:else if devices.length === 0}
     <EmptyInvite />
   {:else}
-    <DeviceGrid {devices} disabled={$connection === 'connecting'} />
+    <DeviceGrid {devices} disabled={$connection === 'connecting'} {onCancel} />
   {/if}
   <Footer onOpen={() => (inviteOpen = true)} />
 </main>

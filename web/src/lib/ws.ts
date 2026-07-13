@@ -8,12 +8,16 @@ import {
   MSG_HELLO,
   MSG_NEED_NAME,
   MSG_OFFER,
+  MSG_OFFER_CANCEL,
+  MSG_OFFER_CANCELLED,
   MSG_OFFER_CREATED,
   MSG_PROGRESS,
   MSG_SET_NAME,
   MSG_TRANSFER_ACCEPTED,
   MSG_TRANSFER_DECLINED,
   MSG_TRANSFER_DONE,
+  MSG_TRANSFER_CANCEL,
+  MSG_TRANSFER_FAILED,
   MSG_WELCOME,
   type OfferRequestMessage,
   type Device,
@@ -22,6 +26,7 @@ import {
 } from './proto';
 import { beginUpload, registerOfferFiles } from './upload';
 import { downloadFile } from './download';
+import { formatOfferCancellation, formatTransferFailure } from './format';
 import { connection, connectionError, devices, devicesLoaded, invite, needsName, offers, self, suggestedName, toasts, transfers, type Toast, type TransferStatus } from './stores';
 
 const DEVICE_ID_KEY = 'befrest.deviceId';
@@ -129,11 +134,33 @@ function handleMessage(message: ServerMessage): void {
       setTransfer(message.transfer, 'receiving');
       return;
     case MSG_TRANSFER_ACCEPTED:
+      transfers.update((items) => {
+        const transfer = items[message.transferId];
+        if (!transfer) return items;
+        return {
+          ...items,
+          [message.transferId]: {
+            ...transfer,
+            transfer: { ...transfer.transfer, state: 'accepted' },
+          },
+        };
+      });
       void beginUpload(message.transferId);
       return;
     case MSG_TRANSFER_DECLINED: {
       const transfer = clearTransfer(message.transferId);
       addToast(`${transfer?.transfer.files[0]?.name ?? 'Transfer'} was declined`);
+      return;
+    }
+    case MSG_OFFER_CANCELLED: {
+      let sender = 'The sender';
+      offers.update((items) => {
+        const offer = items.find((item) => item.transfer.id === message.transferId);
+        sender = offer?.from.name ?? sender;
+        return items.filter((item) => item.transfer.id !== message.transferId);
+      });
+      clearTransfer(message.transferId);
+      addToast(formatOfferCancellation(message.reason, sender), 'failure');
       return;
     }
     case MSG_FILE_READY:
@@ -147,6 +174,7 @@ function handleMessage(message: ServerMessage): void {
           ...items,
           [message.transferId]: {
             ...transfer,
+            transfer: { ...transfer.transfer, state: 'streaming' },
             index: message.index,
             sent: message.sent,
             size: message.size,
@@ -159,6 +187,19 @@ function handleMessage(message: ServerMessage): void {
     case MSG_TRANSFER_DONE: {
       const transfer = clearTransfer(message.transferId);
       addToast(transfer?.direction === 'receiving' ? 'Saved to Downloads ✓' : 'Sent ✓', 'success');
+      return;
+    }
+    case MSG_TRANSFER_FAILED: {
+      const transfer = clearTransfer(message.transferId);
+      const counterpartID = transfer?.direction === 'sending' ? transfer.transfer.receiverId : transfer?.transfer.senderId;
+      let counterpart = 'The other device';
+      if (counterpartID) {
+        devices.update((items) => {
+          counterpart = items.find((device) => device.id === counterpartID)?.name ?? counterpart;
+          return items;
+        });
+      }
+      addToast(formatTransferFailure(message.reason, counterpart), 'failure');
       return;
     }
   }
@@ -238,4 +279,12 @@ export function offerFiles(to: string, files: File[]): boolean {
 export function respondToOffer(transferID: string, accepted: boolean): void {
   offers.update((items) => items.filter((offer) => offer.transfer.id !== transferID));
   send({ type: accepted ? MSG_ACCEPT : MSG_DECLINE, transferId: transferID });
+}
+
+export function cancelOffer(transferID: string): void {
+  send({ type: MSG_OFFER_CANCEL, transferId: transferID });
+}
+
+export function cancelTransfer(transferID: string): void {
+  send({ type: MSG_TRANSFER_CANCEL, transferId: transferID });
 }

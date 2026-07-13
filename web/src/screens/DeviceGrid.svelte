@@ -4,13 +4,14 @@
 
   export let devices: Device[] = [];
   export let disabled = false;
+  export let onCancel: (transferID: string, pending: boolean) => void;
 </script>
 
 <section aria-labelledby="send-to-title">
   <h2 id="send-to-title">Send to</h2>
   <div role="list">
     {#each devices as device (device.id)}
-      <div role="listitem"><DeviceCard {device} {disabled} /></div>
+      <div role="listitem"><DeviceCard {device} {disabled} {onCancel} /></div>
     {/each}
   </div>
 </section>

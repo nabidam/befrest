@@ -2,6 +2,8 @@
   import { transfers } from '../lib/stores';
   import { formatBytes } from '../lib/format';
 
+  export let onCancel: (transferID: string) => void;
+
   $: transfer = Object.values($transfers).find((item) => item.direction === 'receiving');
 </script>
 
@@ -10,5 +12,6 @@
     <p>Receiving {transfer.transfer.files[transfer.index]?.name ?? 'file'}</p>
     <progress value={transfer.totalSent} max={transfer.totalSize}></progress>
     <p>{formatBytes(transfer.totalSent)} / {formatBytes(transfer.totalSize)}</p>
+    <button type="button" on:click={() => onCancel(transfer.transfer.id)}>Cancel</button>
   </aside>
 {/if}

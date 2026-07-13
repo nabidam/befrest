@@ -30,7 +30,7 @@ export interface TransferStatus {
 export interface Toast {
   id: number;
   message: string;
-  tone: 'success' | 'info';
+  tone: 'success' | 'info' | 'failure';
 }
 
 export const offers = writable<IncomingOffer[]>([]);
