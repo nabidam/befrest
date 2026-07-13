@@ -86,6 +86,54 @@ func TestManagerZeroByteAndTerminalCleanup(t *testing.T) {
 	}
 }
 
+func TestManagerFailsMultiFileTransferWithoutStartingLaterFiles(t *testing.T) {
+	events := make(chan Event, 16)
+	manager := NewManager(func(event Event) { events <- event })
+	transfer, err := manager.Offer("sender", "receiver", []FileMeta{
+		{Name: "one.txt", Size: 1},
+		{Name: "two.txt", Size: 1},
+		{Name: "three.txt", Size: 1},
+	})
+	if err != nil {
+		t.Fatalf("Offer() error = %v", err)
+	}
+	if _, err := manager.Accept(transfer.ID, "receiver"); err != nil {
+		t.Fatalf("Accept() error = %v", err)
+	}
+
+	firstUpload := make(chan error, 1)
+	go func() { firstUpload <- manager.Upload(transfer.ID, 0, bytes.NewReader([]byte("a"))) }()
+	waitForEvent(t, events, EventFileReady)
+	if _, err := manager.Download(transfer.ID, 0, io.Discard); err != nil {
+		t.Fatalf("Download(file 0) error = %v", err)
+	}
+	if err := <-firstUpload; err != nil {
+		t.Fatalf("Upload(file 0) error = %v", err)
+	}
+
+	if err := manager.Upload(transfer.ID, 1, bytes.NewReader(nil)); !errors.Is(err, ErrInvalidFile) {
+		t.Fatalf("Upload(file 1) error = %v, want ErrInvalidFile", err)
+	}
+	if got, want := countFailure(drainEvents(events), "stream-error"), 2; got != want {
+		t.Fatalf("stream-error verdicts = %d, want %d", got, want)
+	}
+	failedTransfer, _, err := manager.File(transfer.ID, 2)
+	if err != nil {
+		t.Fatalf("File(file 2) error = %v", err)
+	}
+	if failedTransfer.State != StateFailed {
+		t.Fatalf("transfer state = %q, want %q", failedTransfer.State, StateFailed)
+	}
+	if err := manager.Upload(transfer.ID, 2, bytes.NewReader([]byte("c"))); !errors.Is(err, ErrWrongState) {
+		t.Fatalf("Upload(file 2) error = %v, want ErrWrongState", err)
+	}
+	for _, event := range drainEvents(events) {
+		if event.Type == EventFileReady && event.Index == 2 {
+			t.Fatalf("file-ready emitted for file 3 after file 2 failed: %#v", event)
+		}
+	}
+}
+
 func TestManagerRejectsInvalidStates(t *testing.T) {
 	manager := NewManager(nil)
 	transfer, err := manager.Offer("sender", "receiver", []FileMeta{{Name: "file", Size: 1}})

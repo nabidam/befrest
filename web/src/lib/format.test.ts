@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatBytes, formatOfferCancellation, formatTransferFailure } from './format';
+import { formatAdditionalFiles, formatBytes, formatFilePosition, formatOfferCancellation, formatTransferFailure } from './format';
 
 describe('formatBytes', () => {
   it.each([
@@ -8,6 +8,16 @@ describe('formatBytes', () => {
     [2_000_000_000, '2.0 GB'],
   ])('formats %d bytes as %s', (bytes, expected) => {
     expect(formatBytes(bytes)).toBe(expected);
+  });
+});
+
+describe('multi-file copy', () => {
+  it('summarizes the additional files with the total size', () => {
+    expect(formatAdditionalFiles(1, 1_300_000_000)).toBe('and 1 more — 1.3 GB total');
+  });
+
+  it('labels the current file position', () => {
+    expect(formatFilePosition(1, 5)).toBe('file 2 of 5');
   });
 });
 

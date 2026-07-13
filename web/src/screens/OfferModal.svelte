@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { IncomingOffer } from '../lib/stores';
-  import { formatBytes } from '../lib/format';
+  import { formatAdditionalFiles, formatBytes } from '../lib/format';
 
   export let offer: IncomingOffer | null = null;
   export let onRespond: (transferID: string, accepted: boolean) => void;
@@ -29,7 +29,12 @@
         <li>{file.name} — {formatBytes(file.size)}</li>
       {/each}
       {#if offer.transfer.files.length > 4}
-        <li>and {offer.transfer.files.length - 4} more</li>
+        <li>
+          {formatAdditionalFiles(
+            offer.transfer.files.length - 4,
+            offer.transfer.files.reduce((total, file) => total + file.size, 0),
+          )}
+        </li>
       {/if}
     </ul>
     <button type="button" on:click={() => respond(false)}>Decline</button>

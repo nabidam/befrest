@@ -2,7 +2,7 @@
   import type { Device } from '../lib/proto';
   import { chooseFiles } from '../lib/upload';
   import { transfers } from '../lib/stores';
-  import { formatBytes } from '../lib/format';
+  import { formatBytes, formatFilePosition } from '../lib/format';
 
   export let device: Device;
   export let disabled = false;
@@ -40,6 +40,7 @@
   {#if transfer}
     <h3>{device.name}</h3>
     <p>{transfer.transfer.files[transfer.index]?.name ?? 'Sending file'}</p>
+    <p>{formatFilePosition(transfer.index, transfer.transfer.files.length)}</p>
     <progress value={transfer.totalSent} max={transfer.totalSize}></progress>
     <p>{formatBytes(transfer.totalSent)} / {formatBytes(transfer.totalSize)}</p>
     <p>{transfer.totalSize === 0 ? 100 : Math.round((transfer.totalSent / transfer.totalSize) * 100)}%</p>

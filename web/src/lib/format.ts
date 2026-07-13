@@ -7,6 +7,14 @@ export function formatBytes(bytes: number): string {
   return `${value.toFixed(1)} ${units[unit]}`;
 }
 
+export function formatAdditionalFiles(count: number, totalSize: number): string {
+  return `and ${count} more — ${formatBytes(totalSize)} total`;
+}
+
+export function formatFilePosition(index: number, count: number): string {
+  return `file ${index + 1} of ${count}`;
+}
+
 export type TransferFailureReason =
   | 'sender-disconnected'
   | 'receiver-disconnected'
