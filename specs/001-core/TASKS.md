@@ -174,6 +174,8 @@ Task order is execution order. Walking-skeleton tasks (T0–T14) may not be reor
   - `internal/transfer` imports neither `net/http` handler types beyond `io` interfaces nor websocket (ARCH §2; compile check in test).
 - **Difficulty:** high.
 - **NOT:** no cancel paths, no stall deadlines, no disconnect sweep for transfers (all T12), no multi-file client sequencing (hub already supports N indexes), no disk spooling.
+- **Status:** Done — `891c81d`
+- **Verification evidence:** `go test ./... && make test` passed; `TestTransferHTTPRelayLifecycle` drove two real WebSockets through offer/accept, relayed a concurrent 100 MiB HTTP upload/download with matching SHA-256, final `sent == size` progress, and `transfer-done` on both sockets. `go test -race ./internal/transfer -count=1` passed.
 
 **Interfaces**
 - CONSUMES: T1 registry (device connected? lookup for V-6); T2 per-device WS send path; T5 pipe as quoted there.
