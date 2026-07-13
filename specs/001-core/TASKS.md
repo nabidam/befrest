@@ -410,6 +410,8 @@ Task order is execution order. Walking-skeleton tasks (T0–T14) may not be reor
   - While receiving, tapping another card and sending works; two progress surfaces update independently (AC-21, FR-4.6).
 - **Difficulty:** low.
 - **NOT:** no drop-anywhere zone (cards only), no wake-lock API (hint only, C-6), no upload pause/resume.
+- **Status:** Done — `6c54abf`
+- **Verification evidence:** `npm --prefix web test && npm --prefix web run build && go test ./... && make test` passed; the new upload-path test drove dropped files through the same offer queue as picker files, and `make build` served the embedded SPA at `http://127.0.0.1:54321/`.
 
 **Interfaces**
 - CONSUMES: T7's offer flow (drop feeds the same `offer` path — ARCH §4.3: "drop event → same `offer`/`accept`/POST/GET path"); `self.kind` from T3's stores; T12's stall verdict.
