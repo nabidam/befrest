@@ -13,6 +13,7 @@ export const MSG_TRANSFER_DECLINED = 'transfer-declined';
 export const MSG_FILE_READY = 'file-ready';
 export const MSG_PROGRESS = 'progress';
 export const MSG_TRANSFER_DONE = 'transfer-done';
+export const MSG_INVITE_INFO = 'invite-info';
 
 export type DeviceKind = 'mobile' | 'desktop';
 
@@ -29,6 +30,14 @@ export interface HelloMessage {
   type: typeof MSG_HELLO;
   deviceId?: string;
   name?: string;
+  hostToken?: string;
+}
+
+export interface InviteInfoMessage {
+  type: typeof MSG_INVITE_INFO;
+  urls: { mdns: string; ip: string };
+  port: number;
+  reachabilityHint?: string;
 }
 
 export interface SetNameMessage {
@@ -132,4 +141,5 @@ export type ServerMessage =
   | OfferCreatedMessage
   | TransferIDMessage
   | FileReadyMessage
-  | ProgressMessage;
+  | ProgressMessage
+  | InviteInfoMessage;

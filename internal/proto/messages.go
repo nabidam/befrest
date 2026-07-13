@@ -19,6 +19,7 @@ const (
 	MsgFileReady        = "file-ready"
 	MsgProgress         = "progress"
 	MsgTransferDone     = "transfer-done"
+	MsgInviteInfo       = "invite-info"
 )
 
 // Device is the wire representation of a connected device.
@@ -53,6 +54,19 @@ type Welcome struct {
 type NeedName struct {
 	Type      string `json:"type"`
 	Suggested string `json:"suggested"`
+}
+
+// InviteInfo supplies the host's LAN entry points for the invite surfaces.
+type InviteInfo struct {
+	Type             string     `json:"type"`
+	URLs             InviteURLs `json:"urls"`
+	Port             int        `json:"port"`
+	ReachabilityHint string     `json:"reachabilityHint,omitempty"`
+}
+
+type InviteURLs struct {
+	MDNS string `json:"mdns"`
+	IP   string `json:"ip"`
 }
 
 type Devices struct {

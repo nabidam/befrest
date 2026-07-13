@@ -4,6 +4,7 @@ import {
   MSG_DECLINE,
   MSG_ERROR,
   MSG_FILE_READY,
+  MSG_INVITE_INFO,
   MSG_HELLO,
   MSG_NEED_NAME,
   MSG_OFFER,
@@ -34,6 +35,11 @@ function storedIdentity(): { deviceId?: string; name?: string } {
   const deviceId = localStorage.getItem(DEVICE_ID_KEY) ?? undefined;
   const name = localStorage.getItem(NAME_KEY)?.trim() || undefined;
   return { deviceId, name };
+}
+
+function hostToken(): string | undefined {
+  const token = new URLSearchParams(window.location.search).get('hostToken');
+  return token || undefined;
 }
 
 function socketURL(): string {
@@ -102,6 +108,8 @@ function handleMessage(message: ServerMessage): void {
     case MSG_DEVICES:
       devices.set(message.devices);
       return;
+    case MSG_INVITE_INFO:
+      return;
     case MSG_ERROR:
       connectionError.set(message.message);
       connection.set('error');
@@ -161,7 +169,7 @@ export function connect(): void {
   socket = new WebSocket(socketURL());
 
   socket.addEventListener('open', () => {
-    send({ type: MSG_HELLO, ...identity });
+    send({ type: MSG_HELLO, ...identity, hostToken: hostToken() });
   });
   socket.addEventListener('message', (event) => {
     try {

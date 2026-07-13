@@ -63,6 +63,46 @@ func TestWebSocketRejectsBadUpgrade(t *testing.T) {
 	}
 }
 
+func TestWebSocketHostTokenJoinsHostAndSendsInviteInfo(t *testing.T) {
+	handler, err := New(fstest.MapFS{"dist/index.html": &fstest.MapFile{Data: []byte("Befrest")}}, Config{
+		HostToken: "one-time-token",
+		HostName:  "Befrest Host",
+		Invite: proto.InviteInfo{
+			Type: proto.MsgInviteInfo,
+			URLs: proto.InviteURLs{
+				MDNS: "http://befrest.local:5311",
+				IP:   "http://192.168.1.10:5311",
+			},
+			Port: 5311,
+		},
+	})
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	server := httptest.NewServer(handler)
+	defer server.Close()
+
+	host := dialWS(t, server.URL, "Mozilla/5.0 (X11; Linux x86_64)")
+	defer host.CloseNow()
+	writeFrame(t, host, proto.Hello{Type: proto.MsgHello, HostToken: "one-time-token"})
+	welcome := readFrame(t, host)
+	if welcome.Type != proto.MsgWelcome || !welcome.Self.IsHost || welcome.Self.Name != "Befrest Host" {
+		t.Fatalf("host welcome = %#v", welcome)
+	}
+	invite := readFrame(t, host)
+	if invite.Type != proto.MsgInviteInfo || invite.Port != 5311 || invite.URLs.IP != "http://192.168.1.10:5311" || invite.URLs.MDNS != "http://befrest.local:5311" {
+		t.Fatalf("invite-info = %#v", invite)
+	}
+	assertDevices(t, readFrame(t, host), "Befrest Host")
+
+	second := dialWS(t, server.URL, "Mozilla/5.0")
+	defer second.CloseNow()
+	writeFrame(t, second, proto.Hello{Type: proto.MsgHello, HostToken: "one-time-token"})
+	if frame := readFrame(t, second); frame.Type != proto.MsgNeedName {
+		t.Fatalf("reused host token frame = %#v, want need-name", frame)
+	}
+}
+
 func TestDeviceSuggestionClassifiesSupportedUserAgents(t *testing.T) {
 	tests := []struct {
 		name, userAgent, suggestion, kind string
@@ -106,10 +146,12 @@ func writeFrame(t *testing.T, conn *websocket.Conn, frame any) {
 }
 
 type receivedFrame struct {
-	Type      string         `json:"type"`
-	Suggested string         `json:"suggested"`
-	Self      proto.Device   `json:"self"`
-	Devices   []proto.Device `json:"devices"`
+	Type      string           `json:"type"`
+	Suggested string           `json:"suggested"`
+	Self      proto.Device     `json:"self"`
+	Devices   []proto.Device   `json:"devices"`
+	URLs      proto.InviteURLs `json:"urls"`
+	Port      int              `json:"port"`
 }
 
 func readFrame(t *testing.T, conn *websocket.Conn) receivedFrame {

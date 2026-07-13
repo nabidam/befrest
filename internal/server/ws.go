@@ -23,10 +23,22 @@ type webSocketHub struct {
 	mu        sync.RWMutex
 	sockets   map[string]*websocket.Conn
 	muting    atomic.Int32
+	hostToken string
+	hostName  string
+	invite    proto.InviteInfo
 }
 
-func newWebSocketHub() *webSocketHub {
-	hub := &webSocketHub{sockets: make(map[string]*websocket.Conn)}
+func newWebSocketHub(configs ...Config) *webSocketHub {
+	config := Config{}
+	if len(configs) > 0 {
+		config = configs[0]
+	}
+	hub := &webSocketHub{
+		sockets:   make(map[string]*websocket.Conn),
+		hostToken: config.HostToken,
+		hostName:  config.HostName,
+		invite:    config.Invite,
+	}
 	hub.registry = presence.NewRegistry(hub.broadcastDevices)
 	hub.transfers = transfer.NewManager(hub.notifyTransfer)
 	return hub
@@ -52,10 +64,16 @@ func (h *webSocketHub) serveWS(writer http.ResponseWriter, request *http.Request
 
 	name, kind := deviceSuggestion(request.UserAgent())
 	var deviceID string
-	if strings.TrimSpace(hello.Name) == "" {
+	isHost := h.consumeHostToken(hello.HostToken)
+	if isHost {
+		deviceID = h.joinID(conn, h.hostName, kind, true)
+		if deviceID == "" {
+			return
+		}
+	} else if strings.TrimSpace(hello.Name) == "" {
 		h.write(conn, proto.NeedName{Type: proto.MsgNeedName, Suggested: name})
 	} else {
-		deviceID = h.joinID(conn, hello.Name, kind)
+		deviceID = h.joinID(conn, hello.Name, kind, false)
 		if deviceID == "" {
 			return
 		}
@@ -81,7 +99,7 @@ func (h *webSocketHub) serveWS(writer http.ResponseWriter, request *http.Request
 				continue
 			}
 			if deviceID == "" {
-				deviceID = h.joinID(conn, setName.Name, kind)
+				deviceID = h.joinID(conn, setName.Name, kind, false)
 				if deviceID == "" {
 					return
 				}
@@ -95,6 +113,7 @@ func (h *webSocketHub) serveWS(writer http.ResponseWriter, request *http.Request
 				continue
 			}
 			h.write(conn, welcome(device))
+			h.writeInvite(conn)
 			h.broadcastDevices(h.registry.Snapshot())
 		case proto.MsgHello:
 			h.writeError(conn, "bad-request", "hello is only allowed once")
@@ -201,9 +220,9 @@ func wireTransfer(value *transfer.Transfer) proto.Transfer {
 	return proto.Transfer{ID: value.ID, SenderID: value.SenderID, ReceiverID: value.ReceiverID, Files: files, State: string(value.State), CreatedAt: value.CreatedAt}
 }
 
-func (h *webSocketHub) joinID(conn *websocket.Conn, name, kind string) string {
+func (h *webSocketHub) joinID(conn *websocket.Conn, name, kind string, isHost bool) string {
 	h.muting.Add(1)
-	device, err := h.registry.Join(name, kind, false)
+	device, err := h.registry.Join(name, kind, isHost)
 	h.muting.Add(-1)
 	if err != nil {
 		h.writeError(conn, "bad-request", "device name must not be empty")
@@ -213,8 +232,28 @@ func (h *webSocketHub) joinID(conn *websocket.Conn, name, kind string) string {
 	h.sockets[device.ID] = conn
 	h.mu.Unlock()
 	h.write(conn, welcome(device))
+	h.writeInvite(conn)
 	h.broadcastDevices(h.registry.Snapshot())
 	return device.ID
+}
+
+func (h *webSocketHub) consumeHostToken(token string) bool {
+	if token == "" {
+		return false
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.hostToken != token {
+		return false
+	}
+	h.hostToken = ""
+	return true
+}
+
+func (h *webSocketHub) writeInvite(conn *websocket.Conn) {
+	if h.invite.Port != 0 {
+		h.write(conn, h.invite)
+	}
 }
 
 func (h *webSocketHub) remove(deviceID string) {
