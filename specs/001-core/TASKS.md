@@ -500,6 +500,8 @@ Task order is execution order. Walking-skeleton tasks (T0–T14) may not be reor
   - The raw-hex/px grep from T19 still returns no matches across all of `web/src/screens/`.
 - **Difficulty:** medium.
 - **NOT:** no new UX surfaces or copy beyond UX.md + the reason→copy table, no animation beyond DESIGN's motion tokens.
+- **Status:** Done — `7a9c950`
+- **Verification evidence:** `npm --prefix web test && npm --prefix web run build && make test` passed; raw-value scan found no hex or px values in `web/src/screens/`; built hub served the SPA with HTTP 200 on port 54321. Native dialog focus starts at M1 file information, then Decline and Accept; native dialogs provide modal focus containment and restore focus on M1 close. axe-core was not installed in this task's fixed file scope.
 
 **Interfaces**
 - CONSUMES: T19's `tokens.css` properties; component structure from T7/T10/T11/T13/T17.
