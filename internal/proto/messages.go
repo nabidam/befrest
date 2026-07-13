@@ -19,6 +19,10 @@ const (
 	MsgFileReady        = "file-ready"
 	MsgProgress         = "progress"
 	MsgTransferDone     = "transfer-done"
+	MsgOfferCancel      = "offer-cancel"
+	MsgTransferCancel   = "transfer-cancel"
+	MsgOfferCancelled   = "offer-cancelled"
+	MsgTransferFailed   = "transfer-failed"
 	MsgInviteInfo       = "invite-info"
 )
 
@@ -129,4 +133,16 @@ type Progress struct {
 	Size       int64  `json:"size"`
 	TotalSent  int64  `json:"totalSent"`
 	TotalSize  int64  `json:"totalSize"`
+}
+
+type OfferCancelled struct {
+	Type       string `json:"type"`
+	TransferID string `json:"transferId"`
+	Reason     string `json:"reason"`
+}
+
+type TransferFailed struct {
+	Type       string `json:"type"`
+	TransferID string `json:"transferId"`
+	Reason     string `json:"reason"`
 }

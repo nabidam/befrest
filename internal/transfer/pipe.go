@@ -2,14 +2,18 @@
 package transfer
 
 import (
+	"errors"
 	"io"
 	"sync"
+	"time"
 )
 
 // PipeCapacity is the maximum number of relay bytes kept in memory for one
 // active file. Writers block when the buffer is full, applying backpressure to
 // the HTTP upload that feeds them.
 const PipeCapacity = 4 * 1024 * 1024
+
+var ErrDeadlineExceeded = errors.New("relay deadline exceeded")
 
 // Pipe is a bounded, in-memory rendezvous between one upload writer and one
 // download reader. It implements neither network nor HTTP concerns.
@@ -26,6 +30,8 @@ type Pipe struct {
 
 	readerClosed bool
 	writerClosed bool
+	terminalErr  error
+	timeout      time.Duration
 }
 
 // Reader is the download side of a Pipe.
@@ -42,7 +48,11 @@ type Writer struct {
 // blocked Writer with io.ErrClosedPipe. Closing a Writer lets the Reader drain
 // any buffered bytes, then returns io.EOF.
 func NewPipe() (*Reader, *Writer) {
-	pipe := &Pipe{buffer: make([]byte, PipeCapacity)}
+	return NewPipeWithTimeout(30 * time.Second)
+}
+
+func NewPipeWithTimeout(timeout time.Duration) (*Reader, *Writer) {
+	pipe := &Pipe{buffer: make([]byte, PipeCapacity), timeout: timeout}
 	pipe.notEmpty = sync.NewCond(&pipe.mu)
 	pipe.notFull = sync.NewCond(&pipe.mu)
 	return &Reader{pipe: pipe}, &Writer{pipe: pipe}
@@ -58,9 +68,14 @@ func (r *Reader) Read(destination []byte) (int, error) {
 	p := r.pipe
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	stopDeadline := p.startDeadlineLocked()
+	defer stopDeadline()
 
-	for p.used == 0 && !p.writerClosed && !p.readerClosed {
+	for p.used == 0 && !p.writerClosed && !p.readerClosed && p.terminalErr == nil {
 		p.notEmpty.Wait()
+	}
+	if p.terminalErr != nil {
+		return 0, p.terminalErr
 	}
 	if p.readerClosed {
 		return 0, io.ErrClosedPipe
@@ -81,14 +96,7 @@ func (r *Reader) Read(destination []byte) (int, error) {
 
 // Close closes the download side and unblocks the upload side.
 func (r *Reader) Close() error {
-	p := r.pipe
-	p.mu.Lock()
-	if !p.readerClosed {
-		p.readerClosed = true
-		p.notFull.Broadcast()
-		p.notEmpty.Broadcast()
-	}
-	p.mu.Unlock()
+	r.abort(io.ErrClosedPipe)
 	return nil
 }
 
@@ -97,15 +105,23 @@ func (w *Writer) Write(source []byte) (int, error) {
 	p := w.pipe
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	stopDeadline := p.startDeadlineLocked()
+	defer stopDeadline()
 
+	if p.terminalErr != nil {
+		return 0, p.terminalErr
+	}
 	if p.writerClosed || p.readerClosed {
 		return 0, io.ErrClosedPipe
 	}
 
 	written := 0
 	for written < len(source) {
-		for p.used == len(p.buffer) && !p.readerClosed {
+		for p.used == len(p.buffer) && !p.readerClosed && p.terminalErr == nil {
 			p.notFull.Wait()
+		}
+		if p.terminalErr != nil {
+			return written, p.terminalErr
 		}
 		if p.readerClosed {
 			return written, io.ErrClosedPipe
@@ -134,6 +150,35 @@ func (w *Writer) Close() error {
 	}
 	p.mu.Unlock()
 	return nil
+}
+
+// Abort tears down both endpoints immediately.
+func (r *Reader) Abort(err error) { r.abort(err) }
+func (w *Writer) Abort(err error) { w.pipe.abort(err) }
+
+func (r *Reader) abort(err error) { r.pipe.abort(err) }
+
+func (p *Pipe) abort(err error) {
+	if err == nil {
+		err = io.ErrClosedPipe
+	}
+	p.mu.Lock()
+	if p.terminalErr == nil {
+		p.terminalErr = err
+	}
+	p.readerClosed = true
+	p.writerClosed = true
+	p.notFull.Broadcast()
+	p.notEmpty.Broadcast()
+	p.mu.Unlock()
+}
+
+func (p *Pipe) startDeadlineLocked() func() {
+	if p.timeout <= 0 {
+		return func() {}
+	}
+	timer := time.AfterFunc(p.timeout, func() { p.abort(ErrDeadlineExceeded) })
+	return func() { timer.Stop() }
 }
 
 func min(left, right int) int {

@@ -13,6 +13,10 @@ export const MSG_TRANSFER_DECLINED = 'transfer-declined';
 export const MSG_FILE_READY = 'file-ready';
 export const MSG_PROGRESS = 'progress';
 export const MSG_TRANSFER_DONE = 'transfer-done';
+export const MSG_OFFER_CANCEL = 'offer-cancel';
+export const MSG_TRANSFER_CANCEL = 'transfer-cancel';
+export const MSG_OFFER_CANCELLED = 'offer-cancelled';
+export const MSG_TRANSFER_FAILED = 'transfer-failed';
 export const MSG_INVITE_INFO = 'invite-info';
 
 export type DeviceKind = 'mobile' | 'desktop';
@@ -80,7 +84,7 @@ export interface Transfer {
   senderId: string;
   receiverId: string;
   files: FileMeta[];
-  state: 'offered' | 'accepted' | 'streaming' | 'done' | 'declined';
+  state: 'offered' | 'accepted' | 'streaming' | 'done' | 'declined' | 'failed' | 'cancelled';
   createdAt: string;
 }
 
@@ -128,8 +132,25 @@ export interface ProgressMessage {
 }
 
 export interface ClientTransferIDMessage {
-  type: typeof MSG_ACCEPT | typeof MSG_DECLINE;
+  type: typeof MSG_ACCEPT | typeof MSG_DECLINE | typeof MSG_OFFER_CANCEL | typeof MSG_TRANSFER_CANCEL;
   transferId: string;
+}
+
+export interface OfferCancelledMessage {
+  type: typeof MSG_OFFER_CANCELLED;
+  transferId: string;
+  reason: 'sender-cancelled' | 'sender-disconnected';
+}
+
+export interface TransferFailedMessage {
+  type: typeof MSG_TRANSFER_FAILED;
+  transferId: string;
+  reason:
+    | 'sender-disconnected'
+    | 'receiver-disconnected'
+    | 'cancelled-by-sender'
+    | 'cancelled-by-receiver'
+    | 'stream-error';
 }
 
 export type ServerMessage =
@@ -142,4 +163,6 @@ export type ServerMessage =
   | TransferIDMessage
   | FileReadyMessage
   | ProgressMessage
+  | OfferCancelledMessage
+  | TransferFailedMessage
   | InviteInfoMessage;

@@ -25,6 +25,8 @@ const (
 	StateStreaming TransferState = "streaming"
 	StateDone      TransferState = "done"
 	StateDeclined  TransferState = "declined"
+	StateFailed    TransferState = "failed"
+	StateCancelled TransferState = "cancelled"
 )
 
 type FileMeta struct {
@@ -48,14 +50,17 @@ type Event struct {
 	TransferID                       string
 	Index                            int
 	Sent, Size, TotalSent, TotalSize int64
+	Reason                           string
 }
 
 const (
-	EventAccepted  = "accepted"
-	EventDeclined  = "declined"
-	EventFileReady = "file-ready"
-	EventProgress  = "progress"
-	EventDone      = "done"
+	EventAccepted       = "accepted"
+	EventDeclined       = "declined"
+	EventFileReady      = "file-ready"
+	EventProgress       = "progress"
+	EventDone           = "done"
+	EventOfferCancelled = "offer-cancelled"
+	EventFailed         = "failed"
 )
 
 type activeFile struct {
@@ -65,17 +70,22 @@ type activeFile struct {
 }
 
 type Manager struct {
-	mu         sync.Mutex
-	transfers  map[string]*Transfer
-	files      map[string]map[int]*activeFile
-	notify     func(Event)
-	now        func() time.Time
-	terminalAt map[string]time.Time
+	mu           sync.Mutex
+	transfers    map[string]*Transfer
+	files        map[string]map[int]*activeFile
+	notify       func(Event)
+	now          func() time.Time
+	terminalAt   map[string]time.Time
+	byDevice     map[string]map[string]struct{}
+	relayTimeout time.Duration
 }
 
 func NewManager(notify func(Event)) *Manager { return NewManagerWithClock(notify, time.Now) }
 func NewManagerWithClock(notify func(Event), now func() time.Time) *Manager {
-	return &Manager{transfers: make(map[string]*Transfer), files: make(map[string]map[int]*activeFile), terminalAt: make(map[string]time.Time), notify: notify, now: now}
+	return NewManagerWithClockAndTimeout(notify, now, 30*time.Second)
+}
+func NewManagerWithClockAndTimeout(notify func(Event), now func() time.Time, relayTimeout time.Duration) *Manager {
+	return &Manager{transfers: make(map[string]*Transfer), files: make(map[string]map[int]*activeFile), terminalAt: make(map[string]time.Time), byDevice: make(map[string]map[string]struct{}), notify: notify, now: now, relayTimeout: relayTimeout}
 }
 
 func (m *Manager) Offer(senderID, receiverID string, files []FileMeta) (*Transfer, error) {
@@ -106,7 +116,76 @@ func (m *Manager) Offer(senderID, receiverID string, files []FileMeta) (*Transfe
 	transfer := &Transfer{ID: id, SenderID: senderID, ReceiverID: receiverID, Files: copyFiles, State: StateOffered, CreatedAt: m.now().UTC()}
 	m.transfers[id] = transfer
 	m.files[id] = make(map[int]*activeFile)
+	m.indexLocked(senderID, id)
+	m.indexLocked(receiverID, id)
 	return cloneTransfer(transfer), nil
+}
+
+func (m *Manager) CancelOffer(id, senderID string) error {
+	m.mu.Lock()
+	transfer := m.transfers[id]
+	if transfer == nil {
+		m.mu.Unlock()
+		return ErrNotFound
+	}
+	if transfer.SenderID != senderID || transfer.State != StateOffered {
+		m.mu.Unlock()
+		return ErrWrongState
+	}
+	receiver := transfer.ReceiverID
+	m.finishLocked(transfer, StateCancelled)
+	m.mu.Unlock()
+	m.emit(Event{Type: EventOfferCancelled, To: receiver, TransferID: id, Reason: "sender-cancelled"})
+	return nil
+}
+
+func (m *Manager) CancelTransfer(id, deviceID string) error {
+	m.mu.Lock()
+	transfer := m.transfers[id]
+	if transfer == nil {
+		m.mu.Unlock()
+		return ErrNotFound
+	}
+	if (deviceID != transfer.SenderID && deviceID != transfer.ReceiverID) || (transfer.State != StateAccepted && transfer.State != StateStreaming) {
+		m.mu.Unlock()
+		return ErrWrongState
+	}
+	reason := "cancelled-by-sender"
+	if deviceID == transfer.ReceiverID {
+		reason = "cancelled-by-receiver"
+	}
+	events := m.failLocked(transfer, StateCancelled, reason)
+	m.mu.Unlock()
+	m.emitAll(events)
+	return nil
+}
+
+func (m *Manager) Disconnect(deviceID string) {
+	m.mu.Lock()
+	ids := make([]string, 0, len(m.byDevice[deviceID]))
+	for id := range m.byDevice[deviceID] {
+		ids = append(ids, id)
+	}
+	var events []Event
+	for _, id := range ids {
+		transfer := m.transfers[id]
+		if transfer == nil || isTerminal(transfer.State) {
+			continue
+		}
+		if transfer.State == StateOffered && transfer.SenderID == deviceID {
+			receiver := transfer.ReceiverID
+			m.finishLocked(transfer, StateCancelled)
+			events = append(events, Event{Type: EventOfferCancelled, To: receiver, TransferID: id, Reason: "sender-disconnected"})
+			continue
+		}
+		reason := "receiver-disconnected"
+		if transfer.SenderID == deviceID {
+			reason = "sender-disconnected"
+		}
+		events = append(events, m.failLocked(transfer, StateFailed, reason)...)
+	}
+	m.mu.Unlock()
+	m.emitAll(events)
 }
 
 func (m *Manager) Accept(id, receiverID string) (*Transfer, error) {
@@ -155,10 +234,22 @@ func (m *Manager) Upload(id string, index int, source io.Reader) error {
 	var lastSent int64
 	lastAt := m.now()
 	for {
+		timedOut := make(chan struct{})
+		timer := time.AfterFunc(m.relayTimeout, func() {
+			m.fail(id, "stream-error")
+			if closer, ok := source.(io.Closer); ok {
+				_ = closer.Close()
+			}
+			close(timedOut)
+		})
 		count, readErr := source.Read(buffer)
+		if !timer.Stop() {
+			<-timedOut
+			return ErrDeadlineExceeded
+		}
 		if count > 0 {
 			if _, writeErr := active.writer.Write(buffer[:count]); writeErr != nil {
-				_ = active.writer.Close()
+				m.fail(id, "stream-error")
 				return writeErr
 			}
 			m.mu.Lock()
@@ -176,12 +267,12 @@ func (m *Manager) Upload(id string, index int, source io.Reader) error {
 			break
 		}
 		if readErr != nil {
-			_ = active.writer.Close()
+			m.fail(id, "stream-error")
 			return readErr
 		}
 	}
 	if file.Sent != file.Size {
-		_ = active.writer.Close()
+		m.fail(id, "stream-error")
 		return fmt.Errorf("uploaded %d bytes, want %d: %w", file.Sent, file.Size, ErrInvalidFile)
 	}
 	_ = active.writer.Close()
@@ -219,6 +310,7 @@ func (m *Manager) Download(id string, index int, destination io.Writer) (*FileMe
 	_, err := io.Copy(destination, active.reader)
 	_ = active.reader.Close()
 	if err != nil {
+		m.fail(id, "stream-error")
 		return nil, err
 	}
 	return &result, nil
@@ -266,6 +358,7 @@ func (m *Manager) cleanupLocked() {
 			delete(m.transfers, id)
 			delete(m.files, id)
 			delete(m.terminalAt, id)
+			m.unindexLocked(id)
 		}
 	}
 }
@@ -285,7 +378,7 @@ func (m *Manager) beginUploadLocked(id string, index int) (*Transfer, *FileMeta,
 	if active != nil && active.uploadStarted {
 		return nil, nil, nil, ErrWrongState
 	}
-	reader, writer := NewPipe()
+	reader, writer := NewPipeWithTimeout(m.relayTimeout)
 	active = &activeFile{reader: reader, writer: writer, uploadStarted: true}
 	m.files[id][index] = active
 	transfer.State = StateStreaming
@@ -306,6 +399,51 @@ func (m *Manager) emit(event Event) {
 	if m.notify != nil {
 		m.notify(event)
 	}
+}
+func (m *Manager) fail(id, reason string) {
+	m.mu.Lock()
+	transfer := m.transfers[id]
+	var events []Event
+	if transfer != nil && !isTerminal(transfer.State) {
+		events = m.failLocked(transfer, StateFailed, reason)
+	}
+	m.mu.Unlock()
+	m.emitAll(events)
+}
+func (m *Manager) failLocked(transfer *Transfer, state TransferState, reason string) []Event {
+	m.finishLocked(transfer, state)
+	return []Event{{Type: EventFailed, To: transfer.SenderID, TransferID: transfer.ID, Reason: reason}, {Type: EventFailed, To: transfer.ReceiverID, TransferID: transfer.ID, Reason: reason}}
+}
+func (m *Manager) finishLocked(transfer *Transfer, state TransferState) {
+	transfer.State = state
+	m.terminalAt[transfer.ID] = m.now().Add(time.Minute)
+	for _, active := range m.files[transfer.ID] {
+		if active != nil {
+			active.reader.Abort(io.ErrClosedPipe)
+		}
+	}
+}
+func (m *Manager) indexLocked(deviceID, transferID string) {
+	if m.byDevice[deviceID] == nil {
+		m.byDevice[deviceID] = make(map[string]struct{})
+	}
+	m.byDevice[deviceID][transferID] = struct{}{}
+}
+func (m *Manager) unindexLocked(transferID string) {
+	for deviceID, ids := range m.byDevice {
+		delete(ids, transferID)
+		if len(ids) == 0 {
+			delete(m.byDevice, deviceID)
+		}
+	}
+}
+func (m *Manager) emitAll(events []Event) {
+	for _, event := range events {
+		m.emit(event)
+	}
+}
+func isTerminal(state TransferState) bool {
+	return state == StateDone || state == StateDeclined || state == StateFailed || state == StateCancelled
 }
 func cloneTransfer(value *Transfer) *Transfer {
 	if value == nil {

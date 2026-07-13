@@ -171,6 +171,16 @@ func (h *webSocketHub) serveWS(writer http.ResponseWriter, request *http.Request
 				h.writeError(conn, "bad-request", "transfer cannot be declined")
 				continue
 			}
+		case proto.MsgOfferCancel:
+			var cancel proto.TransferID
+			if err := json.Unmarshal(frame, &cancel); err != nil || h.transfers.CancelOffer(cancel.TransferID, deviceID) != nil {
+				h.writeError(conn, "bad-request", "offer cannot be cancelled")
+			}
+		case proto.MsgTransferCancel:
+			var cancel proto.TransferID
+			if err := json.Unmarshal(frame, &cancel); err != nil || h.transfers.CancelTransfer(cancel.TransferID, deviceID) != nil {
+				h.writeError(conn, "bad-request", "transfer cannot be cancelled")
+			}
 		default:
 			h.writeError(conn, "bad-request", "unsupported message type")
 		}
@@ -246,6 +256,10 @@ func (h *webSocketHub) notifyTransfer(event transfer.Event) {
 		h.writeDevice(event.To, proto.Progress{Type: proto.MsgProgress, TransferID: event.TransferID, Index: event.Index, Sent: event.Sent, Size: event.Size, TotalSent: event.TotalSent, TotalSize: event.TotalSize})
 	case transfer.EventDone:
 		h.writeDevice(event.To, proto.TransferID{Type: proto.MsgTransferDone, TransferID: event.TransferID})
+	case transfer.EventOfferCancelled:
+		h.writeDevice(event.To, proto.OfferCancelled{Type: proto.MsgOfferCancelled, TransferID: event.TransferID, Reason: event.Reason})
+	case transfer.EventFailed:
+		h.writeDevice(event.To, proto.TransferFailed{Type: proto.MsgTransferFailed, TransferID: event.TransferID, Reason: event.Reason})
 	}
 }
 
@@ -297,6 +311,7 @@ func (h *webSocketHub) remove(deviceID string) {
 	h.mu.Lock()
 	delete(h.sockets, deviceID)
 	h.mu.Unlock()
+	h.transfers.Disconnect(deviceID)
 	h.registry.Leave(deviceID)
 }
 
