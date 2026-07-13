@@ -1,4 +1,4 @@
-.PHONY: web build test dev
+.PHONY: web build test dev e2e
 
 web:
 	npm --prefix web run build
@@ -11,3 +11,7 @@ test: web
 
 dev: web
 	go run ./cmd/befrest
+
+e2e: build
+	npm --prefix e2e install --no-package-lock --no-audit --no-fund
+	npm --prefix e2e test
