@@ -5,12 +5,22 @@ Living document. Every file that will exist at v1. New files require updating th
 ```
 befrest/
 ├── ARCHITECTURE.md                      living doc — technical truth
+├── CHANGELOG.md                         published release history
 ├── CONVENTIONS.md                       living doc — how code is written
+├── CONTRIBUTING.md                      local setup and contribution guide
 ├── DESIGN.md                            living doc — design-system contract
 ├── FILE_STRUCTURE.md                    living doc — this file
 ├── UX.md                                living doc — screens & flows
 ├── README.md                            quickstart + flags table (PLAN chunk 13)
+├── LICENSE                              MIT license
+├── SECURITY.md                          vulnerability-reporting policy
 ├── .gitignore                           ignores web/dist, web/node_modules, dist/
+├── .github/
+│   └── workflows/
+│       ├── ci.yml                       build, Go unit, and Playwright E2E checks
+│       └── release.yml                  native tagged builds + GitHub release publishing
+├── docs/
+│   └── RELEASING.md                     maintainer release checklist
 ├── Makefile                             web · build · test · e2e · release
 ├── go.mod                               module github.com/nabidam/befrest, Go 1.23
 ├── go.sum

@@ -2,6 +2,10 @@
 
 Befrest moves files directly between browsers on the same local network. Run one small hub binary on a computer, then open it from nearby phones and laptops—no account, cloud upload, or installation on the receiving devices.
 
+## Download
+
+Download the binary for your host computer from the [latest release](https://github.com/nabidam/befrest/releases/latest). Current automated builds support Linux (amd64), macOS (Intel and Apple Silicon), and Windows (amd64). Receiving devices only need a modern browser and the same local network.
+
 ## Quickstart
 
 1. Download the release binary for the computer that will host the share.
@@ -16,6 +20,13 @@ chmod +x befrest-darwin-arm64
 ```
 
 Keep Befrest running while files transfer. If a firewall prompt appears, allow local-network access.
+
+## Privacy and security
+
+- Transfers stay on your local network: Befrest has no cloud service, account system, or analytics.
+- Files are streamed through the host process and are not written to disk by Befrest.
+- Anyone who can reach the host URL on the local network can request or receive transfers. Use it only on networks you trust.
+- Befrest serves plain HTTP on the LAN. Do not expose its port to the public internet.
 
 ## Command-line flags
 
@@ -46,3 +57,7 @@ make release
 ```
 
 `make release` builds a stripped binary for the current operating system and architecture in `dist/release/`. It fails if the binary reaches the 30 MB release-size limit. Producing all platform downloads is intentionally deferred to a native-runner CI release workflow, because the system-tray dependency requires each target platform’s CGO toolchain.
+
+## Contributing and releases
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the local verification workflow, [SECURITY.md](SECURITY.md) for vulnerability reporting, and [docs/RELEASING.md](docs/RELEASING.md) for the maintainer release checklist. Befrest is released under the [MIT License](LICENSE).
