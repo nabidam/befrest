@@ -50,8 +50,10 @@ Task order is execution order. Walking-skeleton tasks (T0–T14) may not be reor
 - **Files (create):** `internal/proto/messages.go`, `internal/presence/registry.go`, `internal/presence/registry_test.go`
 - **Acceptance:**
   - Registry unit tests drive: join mints uuidv4 `Device.ID`; name validated per V-1 (trim, 1–32, clamp); duplicate requested name gets ` (2)`-style suffix, `RawName` preserved (FR-2.6, V-2); rename re-dedups (EC-3); leave frees the name for reuse.
-  - Every join/leave/rename triggers a full-snapshot fanout through the injected Notifier; test asserts snapshot content excludes the departed device.
-  - `internal/presence` has zero imports of `net/http` or any websocket package (compile check in test — ARCH §2 boundary).
+- Every join/leave/rename triggers a full-snapshot fanout through the injected Notifier; test asserts snapshot content excludes the departed device.
+- `internal/presence` has zero imports of `net/http` or any websocket package (compile check in test — ARCH §2 boundary).
+- **Status:** Done — `eabfede`
+- **Verification evidence:** `go test ./internal/presence -count=1 && go test ./... && make test` passed; registry tests exercised join, rename, leave, deduplicated snapshots, UUIDv4 IDs, and protocol JSON frames.
 - **Difficulty:** low.
 - **NOT:** no WS/HTTP code, no transfer types yet, no User-Agent parsing (that is `server`'s job, ARCH §9).
 
