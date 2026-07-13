@@ -368,6 +368,8 @@ Task order is execution order. Walking-skeleton tasks (T0–T14) may not be reor
 - **Dependencies:** T13 (and all of T0–T13).
 - **Completion artifact:** Human's walkthrough result recorded on this task (screenshots optional). If skipped: mark `GATE SKIPPED`, never delete.
 - **Difficulty:** n/a (human gate).
+- **Status:** Done — GATE PASSED
+- **Verification evidence:** Gate passed by user confirmation on 2026-07-13.
 
 ---
 
