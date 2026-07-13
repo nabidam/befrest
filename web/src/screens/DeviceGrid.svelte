@@ -15,3 +15,9 @@
     {/each}
   </div>
 </section>
+
+<style>
+  section { margin-block: var(--space-xl); }
+  h2 { margin: 0 0 var(--space-md); color: var(--color-text-muted); font-size: var(--text-caption); font-weight: var(--weight-medium); letter-spacing: var(--tracking-caption); line-height: var(--leading-caption); text-transform: uppercase; }
+  [role='list'] { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--size-card-col), 1fr)); gap: var(--space-md); }
+</style>

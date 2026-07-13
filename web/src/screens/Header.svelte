@@ -33,3 +33,16 @@
     {/if}
   {/if}
 </header>
+
+<style>
+  header { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); border-block-end: thin solid var(--color-border); padding-block: var(--space-md); }
+  h1 { margin: 0; color: var(--color-accent); font-size: var(--text-headline); font-weight: var(--weight-semibold); line-height: var(--leading-headline); }
+  p { display: flex; align-items: center; gap: var(--space-xs); margin: 0; color: var(--color-text-muted); font-size: var(--text-body-sm); line-height: var(--leading-body-sm); }
+  form { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--space-sm); }
+  label { color: var(--color-text-muted); font-size: var(--text-body-sm); }
+  input { min-block-size: var(--size-touch); min-inline-size: 0; border: thin solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface-sunken); color: var(--color-text); padding-inline: var(--space-sm); }
+  input:focus { border-color: var(--color-accent); }
+  button { min-block-size: var(--size-touch); min-inline-size: var(--size-touch); border: thin solid var(--color-border); border-radius: var(--radius-sm); background: transparent; color: var(--color-text); cursor: pointer; transition: background var(--dur-fast) var(--ease-standard), transform var(--dur-fast) var(--ease-standard); }
+  button:hover { background: var(--color-surface-hover); }
+  button:active { border-color: var(--color-accent); transform: translateY(var(--press-shift)); }
+</style>

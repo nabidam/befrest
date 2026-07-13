@@ -1,3 +1,6 @@
+@import './tokens.css';
+@import './fonts.css';
+
 * {
   box-sizing: border-box;
 }
@@ -9,5 +12,35 @@ body {
 }
 
 body {
-  font-family: system-ui, sans-serif;
+  min-inline-size: 100%;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-ui);
+  font-size: var(--text-body-lg);
+  line-height: var(--leading-body-lg);
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button,
+[role='button'] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+:focus-visible {
+  outline: var(--focus-ring) solid var(--color-accent);
+  outline-offset: var(--focus-offset);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0ms !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0ms !important;
+  }
 }
