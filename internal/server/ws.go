@@ -13,19 +13,22 @@ import (
 	"github.com/coder/websocket/wsjson"
 	"github.com/nabidam/befrest/internal/presence"
 	"github.com/nabidam/befrest/internal/proto"
+	"github.com/nabidam/befrest/internal/transfer"
 )
 
 // webSocketHub translates control-socket frames into presence registry calls.
 type webSocketHub struct {
-	registry *presence.Registry
-	mu       sync.RWMutex
-	sockets  map[string]*websocket.Conn
-	muting   atomic.Int32
+	registry  *presence.Registry
+	transfers *transfer.Manager
+	mu        sync.RWMutex
+	sockets   map[string]*websocket.Conn
+	muting    atomic.Int32
 }
 
 func newWebSocketHub() *webSocketHub {
 	hub := &webSocketHub{sockets: make(map[string]*websocket.Conn)}
 	hub.registry = presence.NewRegistry(hub.broadcastDevices)
+	hub.transfers = transfer.NewManager(hub.notifyTransfer)
 	return hub
 }
 
@@ -95,6 +98,51 @@ func (h *webSocketHub) serveWS(writer http.ResponseWriter, request *http.Request
 			h.broadcastDevices(h.registry.Snapshot())
 		case proto.MsgHello:
 			h.writeError(conn, "bad-request", "hello is only allowed once")
+		case proto.MsgOffer:
+			if deviceID == "" {
+				h.writeError(conn, "bad-request", "set a device name before offering files")
+				continue
+			}
+			var offer proto.OfferRequest
+			if err := json.Unmarshal(frame, &offer); err != nil {
+				h.writeError(conn, "bad-request", "invalid offer message")
+				continue
+			}
+			if !h.connected(offer.To) {
+				h.writeError(conn, "target-gone", "target device is no longer connected")
+				continue
+			}
+			files := make([]transfer.FileMeta, len(offer.Files))
+			for i, file := range offer.Files {
+				files[i] = transfer.FileMeta{Name: file.Name, Size: file.Size}
+			}
+			created, err := h.transfers.Offer(deviceID, offer.To, files)
+			if err != nil {
+				h.writeError(conn, "bad-request", "offer must contain named files with non-negative sizes")
+				continue
+			}
+			h.write(conn, proto.OfferCreated{Type: proto.MsgOfferCreated, Transfer: wireTransfer(created)})
+			h.writeDevice(offer.To, proto.IncomingOffer{Type: proto.MsgOffer, Transfer: wireTransfer(created), From: h.device(deviceID)})
+		case proto.MsgAccept:
+			var accept proto.TransferID
+			if err := json.Unmarshal(frame, &accept); err != nil {
+				h.writeError(conn, "bad-request", "invalid accept message")
+				continue
+			}
+			if _, err := h.transfers.Accept(accept.TransferID, deviceID); err != nil {
+				h.writeError(conn, "bad-request", "transfer cannot be accepted")
+				continue
+			}
+		case proto.MsgDecline:
+			var decline proto.TransferID
+			if err := json.Unmarshal(frame, &decline); err != nil {
+				h.writeError(conn, "bad-request", "invalid decline message")
+				continue
+			}
+			if _, err := h.transfers.Decline(decline.TransferID, deviceID); err != nil {
+				h.writeError(conn, "bad-request", "transfer cannot be declined")
+				continue
+			}
 		default:
 			h.writeError(conn, "bad-request", "unsupported message type")
 		}
@@ -103,6 +151,54 @@ func (h *webSocketHub) serveWS(writer http.ResponseWriter, request *http.Request
 	if deviceID != "" {
 		h.remove(deviceID)
 	}
+}
+
+func (h *webSocketHub) connected(deviceID string) bool {
+	h.mu.RLock()
+	_, ok := h.sockets[deviceID]
+	h.mu.RUnlock()
+	return ok
+}
+
+func (h *webSocketHub) device(deviceID string) proto.Device {
+	for _, device := range h.registry.Snapshot() {
+		if device.ID == deviceID {
+			return proto.Device{ID: device.ID, Name: device.Name, RawName: device.RawName, Kind: device.Kind, IsHost: device.IsHost, ConnectedAt: device.ConnectedAt}
+		}
+	}
+	return proto.Device{}
+}
+
+func (h *webSocketHub) writeDevice(deviceID string, message any) {
+	h.mu.RLock()
+	conn := h.sockets[deviceID]
+	h.mu.RUnlock()
+	if conn != nil {
+		h.write(conn, message)
+	}
+}
+
+func (h *webSocketHub) notifyTransfer(event transfer.Event) {
+	switch event.Type {
+	case transfer.EventAccepted:
+		h.writeDevice(event.To, proto.TransferID{Type: proto.MsgTransferAccepted, TransferID: event.TransferID})
+	case transfer.EventDeclined:
+		h.writeDevice(event.To, proto.TransferID{Type: proto.MsgTransferDeclined, TransferID: event.TransferID})
+	case transfer.EventFileReady:
+		h.writeDevice(event.To, proto.FileReady{Type: proto.MsgFileReady, TransferID: event.TransferID, Index: event.Index})
+	case transfer.EventProgress:
+		h.writeDevice(event.To, proto.Progress{Type: proto.MsgProgress, TransferID: event.TransferID, Index: event.Index, Sent: event.Sent, Size: event.Size, TotalSent: event.TotalSent, TotalSize: event.TotalSize})
+	case transfer.EventDone:
+		h.writeDevice(event.To, proto.TransferID{Type: proto.MsgTransferDone, TransferID: event.TransferID})
+	}
+}
+
+func wireTransfer(value *transfer.Transfer) proto.Transfer {
+	files := make([]proto.FileMeta, len(value.Files))
+	for i, file := range value.Files {
+		files[i] = proto.FileMeta{Index: file.Index, Name: file.Name, Size: file.Size, Sent: file.Sent}
+	}
+	return proto.Transfer{ID: value.ID, SenderID: value.SenderID, ReceiverID: value.ReceiverID, Files: files, State: string(value.State), CreatedAt: value.CreatedAt}
 }
 
 func (h *webSocketHub) joinID(conn *websocket.Conn, name, kind string) string {
