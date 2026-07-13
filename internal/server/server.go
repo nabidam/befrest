@@ -14,6 +14,8 @@ func New(assets fs.FS) (http.Handler, error) {
 	}
 
 	mux := http.NewServeMux()
+	hub := newWebSocketHub()
+	mux.HandleFunc("/ws", hub.serveWS)
 	mux.Handle("/", http.FileServer(http.FS(dist)))
 	return mux, nil
 }
