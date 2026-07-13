@@ -275,6 +275,8 @@ Task order is execution order. Walking-skeleton tasks (T0–T14) may not be reor
   - Header shows self name (static — rename is T11).
 - **Difficulty:** low.
 - **NOT:** no "Change network" link / M3 (T17), no reachability hint rendering (T17), no rename ✎ (T11), no styling (T19).
+- **Status:** Done — `d253091`
+- **Verification evidence:** `npm --prefix web test && npm --prefix web run build && go test ./... && make test` passed; `go test ./internal/server -run TestWebSocketHostTokenJoinsHostAndSendsInviteInfo -count=1` exercised a real host WebSocket handshake and observed the `invite-info` URLs and port consumed by the bundled QR/copy invite surfaces.
 
 **Interfaces**
 - CONSUMES (from T9, quoted there): `invite-info{urls: {mdns, ip}, port, reachabilityHint?}` after `welcome`.
