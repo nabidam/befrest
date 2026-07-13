@@ -387,6 +387,8 @@ Task order is execution order. Walking-skeleton tasks (T0–T14) may not be reor
   - Hub test: 3-file transfer where file 2 fails mid-stream → whole transfer `Failed`, no `file-ready` for file 3.
 - **Difficulty:** medium.
 - **NOT:** no parallel file streams ("One in-flight file per transfer" — ARCH §4.2), no zip bundling, no folder support.
+- **Status:** Done — `064d776`
+- **Verification evidence:** `npm --prefix web test && npm --prefix web run build && GOCACHE=/tmp/befrest-go-cache go test ./internal/transfer -run TestManagerFailsMultiFileTransferWithoutStartingLaterFiles -count=1 && go test ./... && make test` passed; the focused relay journey completed file 1, failed file 2, emitted two failure verdicts, entered `Failed`, and did not emit `file-ready` for file 3.
 
 **Interfaces**
 - CONSUMES (ARCH §4.2 multi-file sequencing, quoted in T7): "sender uploads file 0; hub emits `file-ready(0)`; …on completion sender proceeds to file 1; `Transfer` reaches `Done` when the last index completes." `progress.totalSent/totalSize` fields from T6.
