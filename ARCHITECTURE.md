@@ -26,7 +26,7 @@ There is no database and no persistence. All state (devices, transfers) lives in
 
 | Concern | Decision |
 |---|---|
-| Hub language/runtime | Go 1.23, single static binary per OS/arch via cross-compilation |
+| Hub language/runtime | Go 1.25, single static binary per OS/arch via cross-compilation |
 | HTTP server | `net/http` stdlib, one `http.ServeMux` |
 | WebSocket | `github.com/coder/websocket` |
 | System tray | `fyne.io/systray` |

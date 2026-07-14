@@ -62,7 +62,7 @@ For example, to run without opening a browser or mDNS announcement:
 
 ## Building from source
 
-Prerequisites: Go 1.23 and Node.js with npm.
+Prerequisites: Go 1.25 and Node.js 24 with npm.
 
 ```sh
 make build

@@ -10,7 +10,7 @@ This repository publishes releases from annotated Git tags. The GitHub Actions r
 
    ```sh
    npm --prefix web ci
-   npm --prefix e2e install --no-package-lock --no-audit --no-fund
+   npm --prefix e2e ci
    make test
    make build
    npm --prefix e2e test

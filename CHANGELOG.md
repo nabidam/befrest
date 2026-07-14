@@ -15,6 +15,10 @@ All notable changes to Befrest are documented here. Releases follow [Semantic Ve
 - Preserve files selected on a phone while its native file picker temporarily disconnects the WebSocket; send the offer after reconnecting.
 - Update Go networking dependencies for compatibility with Go 1.23 release builds.
 
+### Changed
+
+- Update Go and npm dependencies, CI toolchains, and lockfiles; builds now use Go 1.25 and Node.js 24.
+
 ## [0.1.0] - 2026-07-14
 
 ### Added

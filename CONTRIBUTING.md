@@ -4,11 +4,11 @@ Thanks for helping improve Befrest. Please open an issue before making a substan
 
 ## Local setup
 
-Install Go 1.23 and a current Node.js LTS release, then run:
+Install Go 1.25 and Node.js 24, then run:
 
 ```sh
 npm --prefix web ci
-npm --prefix e2e install --no-package-lock --no-audit --no-fund
+npm --prefix e2e ci
 make test
 make build
 npm --prefix e2e test

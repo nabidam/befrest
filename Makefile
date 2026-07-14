@@ -16,7 +16,7 @@ dev: web
 	go run ./cmd/befrest
 
 e2e: build
-	npm --prefix e2e install --no-package-lock --no-audit --no-fund
+	npm --prefix e2e ci
 	npm --prefix e2e test
 
 release: web
