@@ -1,8 +1,26 @@
 import type { Transfer } from './proto';
 import { offerFiles } from './ws';
+import { connection } from './stores';
 
 const filesByRecipient = new Map<string, File[]>();
 const filesByTransfer = new Map<string, File[]>();
+const pendingRecipients = new Set<string>();
+
+// A mobile browser can suspend its WebSocket while its native file picker is
+// open. Keep the selection until ws.ts has rejoined the hub, rather than
+// treating the temporary disconnect as a failed offer.
+connection.subscribe((state) => {
+  if (state !== 'connected') return;
+
+  for (const recipientID of [...pendingRecipients]) {
+    const files = filesByRecipient.get(recipientID);
+    if (!files) {
+      pendingRecipients.delete(recipientID);
+      continue;
+    }
+    if (offerFiles(recipientID, files)) pendingRecipients.delete(recipientID);
+  }
+});
 
 function fileURL(transferID: string, index: number): string {
   return `/api/transfers/${encodeURIComponent(transferID)}/files/${index}`;
@@ -24,13 +42,14 @@ export function offerSelectedFiles(recipientID: string, files: File[]): boolean 
   if (files.length === 0) return false;
   filesByRecipient.set(recipientID, files);
   if (offerFiles(recipientID, files)) return true;
-  filesByRecipient.delete(recipientID);
-  return false;
+  pendingRecipients.add(recipientID);
+  return true;
 }
 
 export function registerOfferFiles(transfer: Transfer): void {
   const files = filesByRecipient.get(transfer.receiverId);
   if (!files) return;
+  pendingRecipients.delete(transfer.receiverId);
   filesByRecipient.delete(transfer.receiverId);
   filesByTransfer.set(transfer.id, files);
 }

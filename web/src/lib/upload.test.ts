@@ -5,11 +5,13 @@ const { offerFiles } = vi.hoisted(() => ({ offerFiles: vi.fn() }));
 vi.mock('./ws', () => ({ offerFiles }));
 
 import { offerSelectedFiles, registerOfferFiles } from './upload';
+import { connection } from './stores';
 import type { Transfer } from './proto';
 
 describe('offerSelectedFiles', () => {
   beforeEach(() => {
     offerFiles.mockReset();
+    connection.set('connecting');
   });
 
   it('uses the same offer path as the file picker and retains files for the created transfer', () => {
@@ -26,9 +28,15 @@ describe('offerSelectedFiles', () => {
     registerOfferFiles(transfer);
   });
 
-  it('does not queue files when the offer cannot be sent', () => {
+  it('queues files selected while the mobile file picker has disconnected the socket', () => {
     offerFiles.mockReturnValue(false);
 
-    expect(offerSelectedFiles('receiver-2', [new File(['x'], 'x.txt')])).toBe(false);
+    expect(offerSelectedFiles('receiver-2', [new File(['x'], 'x.txt')])).toBe(true);
+
+    offerFiles.mockReturnValue(true);
+    connection.set('connected');
+
+    expect(offerFiles).toHaveBeenCalledTimes(2);
+    expect(offerFiles).toHaveBeenLastCalledWith('receiver-2', [expect.any(File)]);
   });
 });
