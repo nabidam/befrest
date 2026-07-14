@@ -4,6 +4,16 @@ All notable changes to Befrest are documented here. Releases follow [Semantic Ve
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-07-14
+
+### Added
+
+- README screenshots covering connection, connected devices, and incoming-file confirmation.
+
+### Fixed
+
+- Preserve files selected on a phone while its native file picker temporarily disconnects the WebSocket; send the offer after reconnecting.
+
 ## [0.1.0] - 2026-07-14
 
 ### Added

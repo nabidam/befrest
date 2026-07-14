@@ -21,6 +21,20 @@ chmod +x befrest-darwin-arm64
 
 Keep Befrest running while files transfer. If a firewall prompt appears, allow local-network access.
 
+## Screenshots
+
+The host starts with a QR code and share links for nearby devices.
+
+![Connection page with QR code and local-network share links](docs/screenshots/1.png)
+
+Once another device joins, choose it from the list to send files.
+
+![Connected-device list](docs/screenshots/2.png)
+
+Recipients review each incoming transfer before accepting or declining it.
+
+![Incoming-file confirmation dialog](docs/screenshots/3.png)
+
 ## Privacy and security
 
 - Transfers stay on your local network: Befrest has no cloud service, account system, or analytics.
